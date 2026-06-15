@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============================================================
+   RobotiKU — Design Tokens (Tailwind v4, light mode only)
+   Menghasilkan utility seperti: bg-brand-orange, text-ink,
+   bg-surface, border-line, text-warning, dll.
+   ============================================================ */
+@theme {
+  /* Brand (dari logo RobotiKU) */
+  --color-brand-orange: #f26522;
+  --color-brand-orange-soft: #fde9dd;
+  --color-brand-purple: #9b2d9b;
+  --color-brand-purple-soft: #f3e3f3;
+  --color-brand-green: #8cc63f;
+  --color-brand-green-soft: #eef7df;
+
+  /* Netral (Apple-ish) */
+  --color-ink: #1d1d1f;
+  --color-ink-soft: #6e6e73;
+  --color-surface: #f5f5f7;
+  --color-line: #e5e5ea;
+
+  /* Semantik */
+  --color-warning: #ff9f0a;
+  --color-error: #ff3b30;
 }
 
+/* Font di-wire dari next/font (lihat layout.tsx).
+   Pakai @theme inline karena nilainya merujuk CSS var runtime. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: #ffffff;
+  color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
