@@ -1,29 +1,41 @@
 import axios from "axios";
+import Cookies from "js-cookie";
 
-/**
- * API client RobotiKU.
- * Base URL diambil dari .env.local (NEXT_PUBLIC_API_URL).
- *
- * Catatan keamanan: penyimpanan token sementara pakai localStorage
- * sebagai placeholder. Strategi final (mis. httpOnly cookie) akan kita
- * tetapkan di Tahap 3 (Autentikasi & Keamanan).
- */
-const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api",
-    headers: {
-        Accept: "application/json",
-    },
+export const TOKEN_KEY = "robotiku_token";
+
+export type ApiEnvelope<T = unknown> = {
+    status: boolean;
+    data: T;
+    message: string;
+};
+
+export const api = axios.create({
+    baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api/v1`,
+    headers: { Accept: "application/json" },
 });
 
-// Sisipkan Bearer token pada setiap request (jika ada).
+// sisipkan Bearer token tiap request
 api.interceptors.request.use((config) => {
-    if (typeof window !== "undefined") {
-        const token = localStorage.getItem("robotiku_token");
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-    }
+    const token = Cookies.get(TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 });
 
-export default api;
+// token kedaluwarsa / tidak valid → bersihkan
+api.interceptors.response.use(
+    (res) => res,
+    (err) => {
+        if (err.response?.status === 401) {
+            Cookies.remove(TOKEN_KEY);
+        }
+        return Promise.reject(err);
+    }
+);
+
+// helper ambil pesan error dari format Laravel
+export function apiError(err: unknown, fallback = "Terjadi kesalahan."): string {
+    if (axios.isAxiosError(err)) {
+        return err.response?.data?.message ?? fallback;
+    }
+    return fallback;
+}

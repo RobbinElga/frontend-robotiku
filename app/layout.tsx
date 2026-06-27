@@ -1,32 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
+import { Poppins, Inter } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  variable: "--font-poppins",
-  display: "swap",
-});
+const poppins = Poppins({ subsets: ["latin"], weight: ["500", "600", "700", "800"], variable: "--font-poppins", display: "swap" });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "RobotiKU Funtech Education",
-  description: "Belajar robotik jadi seru bersama RobotiKU.",
+  title: "Robotiku — Sistem Manajemen",
+  description: "Portal manajemen Robotiku: orang tua, sekolah mitra, dan administrasi.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id">
-      <body className={`${inter.variable} ${poppins.variable} antialiased`}>
-        {children}
+    <html lang="id" className={`${poppins.variable} ${inter.variable}`}>
+      <body className="font-body antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
