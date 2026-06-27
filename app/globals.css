@@ -1,49 +1,185 @@
 @import "tailwindcss";
 
-/* ============================================================
-   RobotiKU — Design Tokens (Tailwind v4, light mode only)
-   Menghasilkan utility seperti: bg-brand-orange, text-ink,
-   bg-surface, border-line, text-warning, dll.
-   ============================================================ */
 @theme {
-  /* Brand (dari logo RobotiKU) */
-  --color-brand-orange: #f26522;
-  --color-brand-orange-soft: #fde9dd;
-  --color-brand-purple: #9b2d9b;
-  --color-brand-purple-soft: #f3e3f3;
-  --color-brand-green: #8cc63f;
-  --color-brand-green-soft: #eef7df;
-
-  /* Netral (Apple-ish) */
-  --color-ink: #1d1d1f;
-  --color-ink-soft: #6e6e73;
-  --color-surface: #f5f5f7;
-  --color-line: #e5e5ea;
-
-  /* Semantik */
-  --color-warning: #ff9f0a;
-  --color-error: #ff3b30;
+  --color-primary: #0476d9;
+  /* ungu */
+  --color-accent: #ffd23f;
+  /* kuning */
+  --color-ink: #141414;
+  --color-ink-muted: #5f5e5a;
+  --color-hairline: #e6e6e6;
+  --font-display: var(--font-poppins);
+  --font-body: var(--font-inter);
 }
 
-/* Font di-wire dari next/font (lihat layout.tsx).
-   Pakai @theme inline karena nilainya merujuk CSS var runtime. */
-@theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+@layer base {
+  body {
+    background: #ffffff;
+    color: var(--color-ink);
+  }
 }
 
-:root {
-  color-scheme: light;
+@layer components {
+  .neo {
+    border: 3px solid #000;
+    box-shadow: 5px 5px 0 0 #000;
+  }
+
+  .neo-sm {
+    border: 2px solid #000;
+    box-shadow: 3px 3px 0 0 #000;
+  }
+
+  .neo-press {
+    transition: transform .1s ease, box-shadow .1s ease;
+  }
+
+  .neo-press:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 3px 3px 0 0 #000;
+  }
+
+  .neo-press:active {
+    transform: translate(5px, 5px);
+    box-shadow: 0 0 0 0 #000;
+  }
 }
 
-html,
-body {
-  background: #ffffff;
-  color: var(--color-ink);
+.anim-bg-gradient {
+  background: linear-gradient(120deg, #f6edfb, #fff8e1, #ffffff, #f3e6f7);
+  background-size: 300% 300%;
+  animation: bg-pan 20s ease-in-out infinite;
 }
 
-body {
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@keyframes bg-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: .45;
+}
+
+@keyframes drift-a {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(10%, 8%) scale(1.15);
+  }
+}
+
+@keyframes drift-b {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(-8%, 10%) scale(1.1);
+  }
+}
+
+@keyframes split-in {
+  from {
+    opacity: 0;
+    transform: translateY(.5em) rotate(3deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.split-word {
+  display: inline-block;
+  animation: split-in .6s cubic-bezier(.2, .7, .3, 1.1) both;
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(.96) translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-pop {
+  animation: pop-in .45s cubic-bezier(.2, .7, .3, 1.2) both;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-slow {
+  animation: spin-slow 14s linear infinite;
+}
+
+@keyframes bob {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-bob {
+  animation: bob 3s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+.animate-wiggle {
+  animation: wiggle 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .anim-bg-gradient,
+  .aurora-blob,
+  .split-word,
+  .animate-pop,
+  .spin-slow,
+  .animate-bob,
+  .animate-wiggle {
+    animation: none !important;
+  }
 }
