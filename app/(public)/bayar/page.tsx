@@ -72,7 +72,7 @@ export default function BayarPage() {
                             Portal Orang Tua
                         </span>
                         <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight">Cek tagihan anak</h1>
-                        <p className="mt-1 text-sm font-medium text-ink-muted">Masukkan nama anak atau nomor HP yang terdaftar</p>
+                        <p className="mt-1 text-sm font-medium text-ink-muted">Masukkan nama anak atau nomor HP yang terdaftar — tanpa kata sandi.</p>
 
                         <form onSubmit={(e) => { e.preventDefault(); lookup.mutate(); }} className="mt-5 flex gap-2">
                             <input className={inputCls} placeholder="Nama anak atau 08xxxxxxxxxx" value={query} onChange={(e) => setQuery(e.target.value)} />

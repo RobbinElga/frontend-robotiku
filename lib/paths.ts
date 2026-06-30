@@ -8,7 +8,7 @@ export type Path = {
 
 export const paths: Path[] = [
     {
-        href: "/bayar", group: "masuk", title: "Orang Tua", icon: Users,
+        href: "/ortu", group: "masuk", title: "Orang Tua", icon: Users,
         bg: "bg-primary", text: "text-white", iconBg: "bg-white text-primary",
         desc: "Cek tagihan & progres anak tanpa kata sandi."
     },
