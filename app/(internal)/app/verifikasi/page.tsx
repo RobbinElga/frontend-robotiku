@@ -13,6 +13,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { cn } from "@/lib/utils";
+import { DrawerHeader } from "@/components/ui/drawer-header";
 
 const rupiah = (n: number | string) => "Rp" + Math.round(Number(n)).toLocaleString("id-ID");
 type Payment = {
@@ -118,29 +119,30 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
             return { url: URL.createObjectURL(blob), isPdf: blob.type.includes("pdf") };
         },
     });
-
     const verify = useMutation({
-        mutationFn: async (action: "approve" | "reject") =>
-            (await api.post(`/bayar/payments/${payment.id}/verify`, { action, notes: notes || undefined })).data,
+        mutationFn: async (action: "approve" | "reject") => (await api.post(`/bayar/payments/${payment.id}/verify`, { action, notes: notes || undefined })).data,
         onSuccess: onDone,
         onError: (e: any) => setErr(e?.response?.status === 422 ? (e.response.data.message ?? "Alasan wajib diisi untuk penolakan.") : apiError(e)),
     });
-
-    const wa = useMutation({
-        mutationFn: async () => (await api.get<ApiEnvelope<{ url: string }>>(`/bayar/invoices/${payment.invoice_id}/wa`)).data.data,
-        onSuccess: (d) => window.open(d.url, "_blank"),
-    });
-
+    const wa = useMutation({ mutationFn: async () => (await api.get<ApiEnvelope<{ url: string }>>(`/bayar/invoices/${payment.invoice_id}/wa`)).data.data, onSuccess: (d) => window.open(d.url, "_blank") });
     const pending = payment.status === "menunggu_verifikasi";
 
     return (
-        <div className="space-y-5 py-2">
-            <div>
-                <h3 className="text-lg font-semibold">{payment.invoice.student.name}</h3>
-                <p className="text-sm text-muted-foreground">{payment.invoice.invoice_number} · {rupiah(payment.invoice.total_amount)}</p>
+        <div>
+            <DrawerHeader title={payment.invoice.student.name} subtitle={payment.invoice.invoice_number}
+                badge={<Badge variant="outline" className={cn("capitalize", statusCls[payment.status])}>{payment.status.replace("_", " ")}</Badge>} />
+
+            {/* highlight jumlah */}
+            <div className="mb-4 flex items-center justify-between rounded-xl border bg-primary/5 p-4">
+                <div>
+                    <p className="text-xs text-muted-foreground">Jumlah tagihan</p>
+                    <p className="text-2xl font-semibold">{rupiah(payment.invoice.total_amount)}</p>
+                </div>
+                <Badge variant="secondary" className="capitalize">{payment.uploader_type === "school_admin" ? "Admin Sekolah" : "Orang Tua"}</Badge>
             </div>
 
             {/* bukti */}
+            <p className="mb-2 text-sm font-semibold">Bukti Pembayaran</p>
             <div className="rounded-lg border p-2">
                 {proof.isLoading && <div className="grid h-48 place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
                 {proof.data && (proof.data.isPdf
@@ -148,25 +150,19 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
                     : <img src={proof.data.url} alt="Bukti" className="max-h-96 w-full rounded-md object-contain" />)}
             </div>
 
-            <Button variant="outline" size="sm" disabled={wa.isPending} onClick={() => wa.mutate()}>
+            <Button variant="outline" size="sm" className="mt-4" disabled={wa.isPending} onClick={() => wa.mutate()}>
                 {wa.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageCircle className="mr-2 h-4 w-4" />} Tagih via WhatsApp
             </Button>
 
-            {pending ? (
-                <div className="space-y-3 rounded-lg border p-4">
+            {pending && (
+                <div className="mt-4 space-y-3 rounded-xl border p-4">
                     <Textarea rows={2} placeholder="Catatan (wajib jika menolak)" value={notes} onChange={(e) => setNotes(e.target.value)} />
                     {err && <p className="text-sm text-destructive">{err}</p>}
                     <div className="flex gap-3">
-                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("approve"); }}>
-                            <Check className="mr-2 h-4 w-4" /> Setujui
-                        </Button>
-                        <Button variant="destructive" className="flex-1" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("reject"); }}>
-                            <X className="mr-2 h-4 w-4" /> Tolak
-                        </Button>
+                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("approve"); }}><Check className="mr-2 h-4 w-4" /> Setujui</Button>
+                        <Button variant="destructive" className="flex-1" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("reject"); }}><X className="mr-2 h-4 w-4" /> Tolak</Button>
                     </div>
                 </div>
-            ) : (
-                <Badge variant="outline" className={cn("capitalize", statusCls[payment.status])}>{payment.status.replace("_", " ")}</Badge>
             )}
         </div>
     );

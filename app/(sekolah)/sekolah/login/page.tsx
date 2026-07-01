@@ -24,7 +24,8 @@ export default function SekolahLoginPage() {
         onSuccess: (res) => {
             const { token, admin } = res.data;
             setSession(token, { kind: "school_admin", id: admin.id, name: admin.name, school_id: admin.school_id });
-            router.replace("/sekolah/dashboard");
+            const redirect = new URLSearchParams(window.location.search).get("redirect");
+            router.replace(redirect && redirect.startsWith("/") ? redirect : "/sekolah/dashboard");
         },
         onError: (e) => setErr(apiError(e, "Login gagal.")),
     });

@@ -16,15 +16,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
+import { PageHeader } from "@/components/ui/page-header";
+import { DrawerHeader } from "@/components/ui/drawer-header";
 import { cn } from "@/lib/utils";
 
 type Parent = { id: number; name: string; phone: string } | null;
 type School = { id: number; name: string } | null;
 type Kelas = { id: number; name: string };
-type Log = {
-    id: number; old_status: string | null; new_status: string; note: string | null;
-    changed_by_type: string; changed_by: number | null; created_at: string;
-};
+type Log = { id: number; old_status: string | null; new_status: string; note: string | null; changed_by_type: string; changed_by: number | null; created_at: string };
 type Student = {
     id: number; student_code: string; name: string; gender: "L" | "P"; status: string;
     registration_type: "mandiri" | "instansi"; school_grade: string | null; school_origin: string | null;
@@ -52,12 +51,7 @@ function SiswaInner() {
         queryKey: ["siswa", { search, status, tipe, page }],
         queryFn: async () =>
             (await api.get("/siswa", {
-                params: {
-                    search: search || undefined,
-                    status: status === "semua" ? undefined : status,
-                    registration_type: tipe === "semua" ? undefined : tipe,
-                    page,
-                },
+                params: { search: search || undefined, status: status === "semua" ? undefined : status, registration_type: tipe === "semua" ? undefined : tipe, page },
             })).data.data as Paginator,
         placeholderData: keepPreviousData,
     });
@@ -71,19 +65,11 @@ function SiswaInner() {
     const exportFile = useMutation({
         mutationFn: async (type: "excel" | "pdf") => {
             const res = await api.get(`/siswa/export/${type}`, {
-                params: {
-                    search: search || undefined,
-                    status: status === "semua" ? undefined : status,
-                    registration_type: tipe === "semua" ? undefined : tipe,
-                },
+                params: { search: search || undefined, status: status === "semua" ? undefined : status, registration_type: tipe === "semua" ? undefined : tipe },
                 responseType: "blob",
             });
             const url = URL.createObjectURL(res.data as Blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = type === "excel" ? "data-siswa.xlsx" : "data-siswa.pdf";
-            a.click();
-            URL.revokeObjectURL(url);
+            const a = document.createElement("a"); a.href = url; a.download = type === "excel" ? "data-siswa.xlsx" : "data-siswa.pdf"; a.click(); URL.revokeObjectURL(url);
         },
     });
 
@@ -92,24 +78,19 @@ function SiswaInner() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Data Siswa</h1>
-                    <p className="text-sm text-muted-foreground">Kelola data siswa, status, dan riwayat perubahan.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" disabled={exportFile.isPending} onClick={() => exportFile.mutate("excel")}>
-                        <Download className="mr-2 h-4 w-4" /> Excel
-                    </Button>
-                    <Button variant="outline" disabled={exportFile.isPending} onClick={() => exportFile.mutate("pdf")}>
-                        <FileText className="mr-2 h-4 w-4" /> PDF
-                    </Button>
-                    <Button asChild><Link href="/daftar"><Plus className="mr-2 h-4 w-4" /> Siswa Baru</Link></Button>
-                </div>
-            </div>
+            <PageHeader
+                title="Data Siswa"
+                subtitle="Kelola data siswa, status, dan riwayat perubahan."
+                action={
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" disabled={exportFile.isPending} onClick={() => exportFile.mutate("excel")}><Download className="mr-2 h-4 w-4" /> Excel</Button>
+                        <Button variant="outline" disabled={exportFile.isPending} onClick={() => exportFile.mutate("pdf")}><FileText className="mr-2 h-4 w-4" /> PDF</Button>
+                        <Button asChild><Link href="/daftar"><Plus className="mr-2 h-4 w-4" /> Siswa Baru</Link></Button>
+                    </div>
+                }
+            />
 
             <Card className="overflow-hidden">
-                {/* kontrol */}
                 <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="relative w-full lg:w-80">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -117,9 +98,7 @@ function SiswaInner() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         {filters.map((f) => (
-                            <Button key={f} size="sm" variant={status === f ? "default" : "outline"} className="capitalize" onClick={() => { setStatus(f); reset(); }}>
-                                {f}
-                            </Button>
+                            <Button key={f} size="sm" variant={status === f ? "default" : "outline"} className="capitalize" onClick={() => { setStatus(f); reset(); }}>{f}</Button>
                         ))}
                         <Select value={tipe} onValueChange={(v) => { setTipe(v ?? "semua"); reset(); }}>
                             <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
@@ -132,7 +111,6 @@ function SiswaInner() {
                     </div>
                 </div>
 
-                {/* tabel */}
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -180,9 +158,8 @@ function SiswaInner() {
                 )}
             </Card>
 
-            {/* DRAWER DETAIL */}
             <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
-                <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+                <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-xl">
                     {detail.isLoading && <div className="grid h-full place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
                     {detail.data && <Detail student={detail.data} onChanged={() => { detail.refetch(); qc.invalidateQueries({ queryKey: ["siswa"] }); }} />}
                 </SheetContent>
@@ -212,66 +189,54 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
     ];
 
     return (
-        <div className="space-y-8 py-2">
-            <h3 className="text-lg font-semibold">Detail Siswa</h3>
+        <div>
+            <DrawerHeader title={student.name} subtitle={student.student_code}
+                badge={<Badge variant="outline" className={cn("capitalize", statusCls[student.status])}>{student.status}</Badge>} />
 
-            <div className="flex items-start gap-4">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">{student.name[0]}</div>
-                <div>
-                    <h4 className="text-xl font-semibold">{student.name}</h4>
-                    <p className="text-sm text-muted-foreground">{student.student_code}</p>
-                    <Badge variant="outline" className={cn("mt-2 capitalize", statusCls[student.status])}>{student.status}</Badge>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-                {info.map((i) => (
-                    <div key={i.l} className="rounded-lg border bg-muted/30 p-3">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{i.l}</p>
-                        <p className="mt-1 text-sm font-medium capitalize">{i.v}</p>
-                    </div>
-                ))}
-            </div>
-
-            {/* manajemen status */}
-            <div className="rounded-xl border p-4">
-                <p className="mb-3 text-sm font-semibold">Manajemen Status</p>
-                <div className="flex gap-3">
-                    <Select value={status} onValueChange={(v) => setStatus(v ?? student.status)}>
-                        <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="aktif">Aktif</SelectItem>
-                            <SelectItem value="cuti">Cuti</SelectItem>
-                            <SelectItem value="berhenti">Berhenti</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button disabled={status === student.status || change.isPending} onClick={() => change.mutate()}>
-                        {change.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
-                    </Button>
-                </div>
-                <Textarea className="mt-3" rows={2} placeholder="Catatan perubahan (opsional)" value={note} onChange={(e) => setNote(e.target.value)} />
-                {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
-                <p className="mt-3 flex items-start gap-1 text-xs text-muted-foreground"><Info className="h-3.5 w-3.5" /> Perubahan tercatat permanen di riwayat (immutable).</p>
-            </div>
-
-            {/* timeline log */}
-            <div>
-                <p className="mb-4 text-sm font-semibold">Riwayat Status (Immutable)</p>
-                <div className="relative space-y-5 pl-4 before:absolute before:inset-y-0 before:left-[5px] before:w-px before:bg-border">
-                    {student.statusLogs?.map((log) => (
-                        <div key={log.id} className="relative">
-                            <span className={cn("absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background",
-                                log.new_status === "aktif" ? "bg-emerald-500" : log.new_status === "cuti" ? "bg-amber-500" : "bg-rose-500")} />
-                            <p className="text-sm font-medium capitalize">
-                                {log.old_status ? `${log.old_status} → ${log.new_status}` : `Pendaftaran (${log.new_status})`}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                Oleh: {log.changed_by_type === "school_admin" ? "Admin Sekolah" : "Staf"} • {log.created_at?.slice(0, 16).replace("T", " ")}
-                            </p>
-                            {log.note && <p className="mt-2 inline-block rounded-lg bg-muted/40 p-2 text-sm">{log.note}</p>}
+            <div className="space-y-7">
+                <div className="grid grid-cols-2 gap-3">
+                    {info.map((i) => (
+                        <div key={i.l} className="rounded-lg border bg-muted/30 p-3">
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">{i.l}</p>
+                            <p className="mt-1 text-sm font-medium capitalize">{i.v}</p>
                         </div>
                     ))}
-                    {(!student.statusLogs || student.statusLogs.length === 0) && <p className="text-sm text-muted-foreground">Belum ada perubahan status.</p>}
+                </div>
+
+                <div className="rounded-xl border p-4">
+                    <p className="mb-3 text-sm font-semibold">Manajemen Status</p>
+                    <div className="flex gap-3">
+                        <Select value={status} onValueChange={(v) => setStatus(v ?? student.status)}>
+                            <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="aktif">Aktif</SelectItem>
+                                <SelectItem value="cuti">Cuti</SelectItem>
+                                <SelectItem value="berhenti">Berhenti</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button disabled={status === student.status || change.isPending} onClick={() => change.mutate()}>
+                            {change.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
+                        </Button>
+                    </div>
+                    <Textarea className="mt-3" rows={2} placeholder="Catatan perubahan (opsional)" value={note} onChange={(e) => setNote(e.target.value)} />
+                    {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
+                    <p className="mt-3 flex items-start gap-1 text-xs text-muted-foreground"><Info className="h-3.5 w-3.5" /> Perubahan tercatat permanen di riwayat (immutable).</p>
+                </div>
+
+                <div>
+                    <p className="mb-4 text-sm font-semibold">Riwayat Status (Immutable)</p>
+                    <div className="relative space-y-5 pl-4 before:absolute before:inset-y-0 before:left-[5px] before:w-px before:bg-border">
+                        {student.statusLogs?.map((log) => (
+                            <div key={log.id} className="relative">
+                                <span className={cn("absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background",
+                                    log.new_status === "aktif" ? "bg-emerald-500" : log.new_status === "cuti" ? "bg-amber-500" : "bg-rose-500")} />
+                                <p className="text-sm font-medium capitalize">{log.old_status ? `${log.old_status} → ${log.new_status}` : `Pendaftaran (${log.new_status})`}</p>
+                                <p className="text-xs text-muted-foreground">Oleh: {log.changed_by_type === "school_admin" ? "Admin Sekolah" : "Staf"} • {log.created_at?.slice(0, 16).replace("T", " ")}</p>
+                                {log.note && <p className="mt-2 inline-block rounded-lg bg-muted/40 p-2 text-sm">{log.note}</p>}
+                            </div>
+                        ))}
+                        {(!student.statusLogs || student.statusLogs.length === 0) && <p className="text-sm text-muted-foreground">Belum ada perubahan status.</p>}
+                    </div>
                 </div>
             </div>
         </div>
@@ -279,9 +244,5 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
 }
 
 export default function Page() {
-    return (
-        <InternalShell>
-            <SiswaInner />
-        </InternalShell>
-    );
+    return <InternalShell><SiswaInner /></InternalShell>;
 }

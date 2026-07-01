@@ -2,100 +2,84 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
-import { LayoutDashboard, Users, Wallet, History, LogOut, Bot, Menu } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { LayoutDashboard, Users, Wallet, History, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-store";
-import { SchoolGuard } from "@/components/auth/SchoolGuard";
+import { useConfirm } from "@/components/ui/confirm";
+import { BottomNav, type NavItem } from "@/components/ui/BottomNav";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
 
-const nav = [
-    { href: "/sekolah/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/sekolah/siswa", label: "Siswa", icon: Users },
-    { href: "/sekolah/pembayaran", label: "Pembayaran Kolektif", icon: Wallet },
+const NAV: NavItem[] = [
+    { href: "/sekolah/dashboard", label: "Beranda", icon: LayoutDashboard },
+    { href: "/sekolah/siswa", label: "Murid", icon: Users },
+    { href: "/sekolah/pembayaran", label: "Pembayaran", icon: Wallet },
     { href: "/sekolah/riwayat", label: "Riwayat", icon: History },
 ];
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
-    const path = usePathname();
-    return (
-        <nav className="space-y-1">
-            {nav.map(({ href, label, icon: Icon }) => {
-                const active = path === href;
-                return (
-                    <Link key={href} href={href} onClick={onNavigate}
-                        className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                            active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        )}>
-                        <Icon className="h-5 w-5" /> {label}
-                    </Link>
-                );
-            })}
-        </nav>
-    );
-}
-
-function Inner({ children }: { children: React.ReactNode }) {
+export function SchoolShell({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
     const router = useRouter();
-    const { actor, clear } = useAuth();
-    const logout = useMutation({
-        mutationFn: async () => api.post("/auth/school-admin/logout"),
-        onSettled: () => { clear(); router.replace("/sekolah/login"); },
-    });
+    const isMobile = useIsMobile();
+    const confirm = useConfirm();
 
-    const Brand = (
-        <div className="flex items-center gap-3 px-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Bot className="h-5 w-5" /></div>
-            <div><p className="text-sm font-semibold">RobotiKU</p><p className="text-xs text-muted-foreground">Portal Sekolah</p></div>
-        </div>
-    );
+    const actor = useAuth((s) => s.actor);
+    const clear = useAuth((s) => s.clear);
+    const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+    const logout = async () => {
+        const ok = await confirm({ title: "Keluar?", description: "Anda akan keluar dari portal sekolah.", confirmText: "Keluar", variant: "destructive" });
+        if (!ok) return;
+        try { await api.post("/auth/logout"); } catch { /* abaikan */ }
+        clear();
+        router.replace("/sekolah/login");
+    };
 
     return (
         <div className="flex min-h-screen bg-muted/30">
-            {/* sidebar desktop */}
-            <aside className="hidden w-64 shrink-0 flex-col border-r bg-background p-3 md:flex">
-                <div className="py-4">{Brand}</div>
-                <div className="mt-2 flex-1"><NavLinks /></div>
-                <Button variant="ghost" className="justify-start gap-3 text-muted-foreground" onClick={() => logout.mutate()}>
-                    <LogOut className="h-5 w-5" /> Keluar
-                </Button>
+            {/* SIDEBAR desktop */}
+            <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-background md:flex">
+                <div className="flex h-14 items-center gap-2 border-b px-4">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">R</div>
+                    <span className="font-semibold">Portal Sekolah</span>
+                </div>
+                <nav className="flex-1 space-y-1 p-2">
+                    {NAV.map((it) => {
+                        const Icon = it.icon;
+                        const active = isActive(it.href);
+                        return (
+                            <Link key={it.href} href={it.href}
+                                className={cn("flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                                    active ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>
+                                <Icon className="h-4 w-4" /> {it.label}
+                            </Link>
+                        );
+                    })}
+                </nav>
             </aside>
 
             <div className="flex min-w-0 flex-1 flex-col">
-                {/* topbar */}
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
-                    <div className="flex items-center gap-2">
-                        <Sheet>
-                            <SheetTrigger className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted">
-                                <Menu className="h-5 w-5" />
-                                <span className="sr-only">Buka menu</span>
-                            </SheetTrigger>
-                            <SheetContent side="left" className="w-64 p-3">
-                                <div className="py-4">{Brand}</div>
-                                <NavLinks />
-                            </SheetContent>
-                        </Sheet>
-                        <span className="font-semibold md:hidden">Portal Sekolah</span>
+                <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 px-4 backdrop-blur">
+                    <div className="flex items-center gap-2 md:hidden">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">R</div>
+                        <span className="font-semibold">Portal Sekolah</span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="ml-auto flex items-center gap-2">
                         <div className="hidden text-right sm:block">
-                            <p className="text-sm font-medium leading-none">{actor?.kind === "school_admin" ? actor.name : "Admin Sekolah"}</p>
-                            <p className="text-xs text-muted-foreground">Admin Sekolah</p>
+                            <div className="text-sm font-medium leading-tight">{actor?.name ?? "Admin Sekolah"}</div>
+                            <div className="text-xs text-muted-foreground">Admin Sekolah</div>
                         </div>
-                        <Avatar className="h-9 w-9"><AvatarFallback>{actor?.kind === "school_admin" ? actor.name?.[0] : "A"}</AvatarFallback></Avatar>
+                        <button onClick={logout} title="Keluar"
+                            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-red-600">
+                            <LogOut className="h-4 w-4" />
+                        </button>
                     </div>
                 </header>
 
-                <main className="flex-1 p-4 md:p-6">{children}</main>
+                <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
             </div>
+
+            {isMobile && <BottomNav items={NAV} />}
         </div>
     );
-}
-
-export function SchoolShell({ children }: { children: React.ReactNode }) {
-    return <SchoolGuard><Inner>{children}</Inner></SchoolGuard>;
 }
