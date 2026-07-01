@@ -7,13 +7,12 @@ import { ArrowLeft, Tag, CheckCircle2, Loader2, PartyPopper } from "lucide-react
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 
-type Program = { id: number; name: string; schedule: string | null; registration_fee: string; price_per_cycle: string };
+type Program = { id: number; name: string; registration_fee: string; price_per_cycle: string };
 type PromoResult = { code: string; discount_amount: number; registration_fee: number; price_per_cycle: number; total_preview: number };
 type DaftarResult = {
-    student: { student_code: string; name: string };
+    student: { id: number; student_code: string; name: string };
     invoice: { invoice_number: string; total_amount: string; discount_amount: string; due_date: string; status: string };
 };
-
 const rupiah = (n: number) => "Rp" + Math.round(n).toLocaleString("id-ID");
 const inputCls = "w-full rounded-md border-2 border-black bg-white px-3 py-2 font-medium outline-none transition focus:shadow-[3px_3px_0_0_#000]";
 
@@ -31,7 +30,7 @@ export default function DaftarPage() {
     const [form, setForm] = useState({
         name: "", birth_date: "", gender: "L", shirt_size: "M",
         school_origin: "", school_grade: "", allergy_notes: "",
-        photo_permission: true, parent_name: "", phone: "", class_id: "",
+        photo_permission: true, parent_name: "", phone: "", program_id: "",
     });
     const [promoCode, setPromoCode] = useState("");
     const [promo, setPromo] = useState<PromoResult | null>(null);
@@ -45,27 +44,21 @@ export default function DaftarPage() {
         queryKey: ["programs"],
         queryFn: async () => (await api.get<ApiEnvelope<Program[]>>("/programs")).data.data,
     });
-    const selected = programs?.find((p) => String(p.id) === form.class_id);
+    const selected = programs?.find((p) => String(p.id) === form.program_id);
 
     const checkPromo = useMutation({
         mutationFn: async () =>
-            (await api.post<ApiEnvelope<PromoResult>>("/promo/check", { code: promoCode, class_id: Number(form.class_id) })).data,
+            (await api.post<ApiEnvelope<PromoResult>>("/promo/check", { code: promoCode, program_id: Number(form.program_id) })).data,
         onSuccess: (res) => { setPromo(res.data); setPromoMsg(res.message); },
         onError: (e) => { setPromo(null); setPromoMsg(apiError(e, "Kode promo tidak valid.")); },
     });
 
     const submit = useMutation({
-        mutationFn: async () =>
-            (await api.post<ApiEnvelope<DaftarResult>>("/daftar", {
-                ...form,
-                class_id: Number(form.class_id),
-                promo_code: promo ? promoCode : undefined,
-            })).data,
-        onSuccess: (res) => { setErrors({}); setResult(res.data); },
-        onError: (e: any) => {
-            if (e?.response?.status === 422) setErrors(e.response.data.errors ?? {});
-            else setPromoMsg(apiError(e));
-        },
+        mutationFn: async () => (await api.post<ApiEnvelope<DaftarResult>>("/daftar", {
+            ...form, program_id: Number(form.program_id), promo_code: promo ? promoCode : undefined,
+        })).data,
+        onSuccess: (res) => setResult(res.data),
+        onError: (e: any) => { if (e?.response?.status === 422) setErrors(e.response.data.errors ?? {}); },
     });
 
     const reg = selected ? Number(selected.registration_fee) : 0;
@@ -159,8 +152,8 @@ export default function DaftarPage() {
                                 <input className={inputCls} placeholder="08xxxxxxxxxx" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
                             </Field>
                             <div className="sm:col-span-2">
-                                <Field label="Pilih program *" error={errors.class_id}>
-                                    <select className={inputCls} value={form.class_id} onChange={(e) => { set("class_id", e.target.value); setPromo(null); setPromoMsg(null); }}>
+                                <Field label="Pilih program *" error={errors.program_id}>
+                                    <select className={inputCls} value={form.program_id} onChange={(e) => { set("program_id", e.target.value); setPromo(null); setPromoMsg(null); }}>
                                         <option value="">— pilih program —</option>
                                         {programs?.map((p) => (
                                             <option key={p.id} value={p.id}>{p.name} — {rupiah(Number(p.price_per_cycle))}/siklus</option>
@@ -184,7 +177,7 @@ export default function DaftarPage() {
                             <span className="flex items-center gap-2 font-display text-sm font-extrabold"><Tag className="h-4 w-4" strokeWidth={2.5} /> Kode promo</span>
                             <div className="mt-2 flex gap-2">
                                 <input className={inputCls} placeholder="mis. HEMAT50" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} />
-                                <button type="button" disabled={!form.class_id || !promoCode || checkPromo.isPending}
+                                <button type="button" disabled={!form.program_id || !promoCode || checkPromo.isPending}
                                     onClick={() => checkPromo.mutate()}
                                     className="shrink-0 rounded-md border-2 border-black bg-accent px-4 font-display text-sm font-extrabold shadow-[3px_3px_0_0_#000] disabled:opacity-50 active:translate-y-[2px] active:shadow-none">
                                     {checkPromo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cek"}
@@ -195,10 +188,9 @@ export default function DaftarPage() {
                                     {promo ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> {promoMsg} — potongan {rupiah(disc)}</span> : promoMsg}
                                 </p>
                             )}
-                            {!form.class_id && <p className="mt-2 text-xs font-medium text-ink-muted">Pilih program dulu untuk memakai kode promo.</p>}
+                            {!form.program_id && <p className="mt-2 text-xs font-medium text-ink-muted">Pilih program dulu untuk memakai kode promo.</p>}
                         </div>
 
-                        {/* SUBMIT (mobile-friendly, sticky di bawah form) */}
                         <button type="submit" disabled={submit.isPending}
                             className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border-[3px] border-black bg-primary py-3.5 font-display text-base font-extrabold text-white shadow-[5px_5px_0_0_#000] transition disabled:opacity-60 active:translate-y-[4px] active:shadow-none">
                             {submit.isPending ? <><Loader2 className="h-5 w-5 animate-spin" /> Memproses…</> : "Daftar Sekarang"}

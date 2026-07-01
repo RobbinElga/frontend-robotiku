@@ -1,4 +1,4 @@
-import { Users, School, UserPlus, GraduationCap, type LucideIcon } from "lucide-react";
+import { Users, School, UserPlus, GraduationCap, type LucideIcon, Wallet } from "lucide-react";
 
 export type Path = {
     href: string; title: string; desc: string; icon: LucideIcon;
@@ -13,18 +13,23 @@ export const paths: Path[] = [
         desc: "Cek tagihan & progres anak tanpa kata sandi."
     },
     {
-        href: "/sekolah/login", group: "masuk", title: "Admin Sekolah", icon: School,
-        bg: "bg-accent", text: "text-ink", iconBg: "bg-black text-white",
-        desc: "Masuk dengan email atau nomor HP."
-    },
-    {
         href: "/daftar", group: "daftar", title: "Daftar Mandiri", icon: UserPlus,
         bg: "bg-white", text: "text-ink", iconBg: "bg-primary text-white",
         desc: "Daftar sendiri + bisa pakai kode promo."
     },
     {
+        href: "/sekolah/login", group: "masuk", title: "Admin Sekolah", icon: School,
+        bg: "bg-primary", text: "text-white", iconBg: "bg-white text-primary",
+        desc: "Masuk dengan email atau nomor HP."
+    },
+    {
         href: "/daftar/instansi", group: "daftar", title: "Daftar via Instansi", icon: GraduationCap,
-        bg: "bg-white", text: "text-ink", iconBg: "bg-accent text-ink",
+        bg: "bg-white", text: "text-ink", iconBg: "bg-primary text-white",
         desc: "Sekolah mitra mendaftarkan muridnya."
+    },
+    {
+        href: "/bayar", group: "masuk", title: "Bayar Tagihan", icon: Wallet,
+        bg: "bg-white", text: "text-ink", iconBg: "bg-brand text-white",
+        desc: "Upload bukti pembayaran tagihan anak — cepat."
     },
 ];

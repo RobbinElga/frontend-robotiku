@@ -56,6 +56,14 @@
     transform: translate(5px, 5px);
     box-shadow: 0 0 0 0 #000;
   }
+
+  table {
+    font-size: 0.875rem;
+  }
+
+  tbody tr {
+    transition: background-color .12s;
+  }
 }
 
 .anim-bg-gradient {
