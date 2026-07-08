@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { paths } from "@/lib/paths";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 import { SplitText } from "@/components/ui/SplitText";
@@ -7,6 +7,7 @@ import { CircularText } from "@/components/ui/CircularText";
 import { Navbar } from "@/components/ui/Navbar";
 import { Tilt } from "@/components/ui/Tilt";
 import { CountUp } from "@/components/ui/CountUp";
+import { RobotikuMascot } from "@/components/ui/robotiku-mascot";
 
 export function DesktopGateway() {
     return (
@@ -38,15 +39,18 @@ export function DesktopGateway() {
                                 backgroundColor: "#0476d9",
                                 clipPath: "polygon(25% 0%, 75% 0%, 100% 28%, 100% 72%, 75% 100%, 25% 100%, 0% 72%, 0% 28%)",
                                 filter: "drop-shadow(6px 6px 0 #000)",
-                            }} />
+                            }} /> <div className="absolute inset-0 flex items-center justify-center">
+                                <RobotikuMascot className="h-full w-full" />
+                            </div>
                             <div className="absolute -left-4 bottom-6 md:-left-8"><CircularText /></div>
                         </div>
                     </div>
                 </div>
             </section>
 
+            {/* Admin Sekolah disembunyikan dari grid (hideFromGrid), tetap di dropdown Masuk (Navbar) */}
             <section className="mx-auto mt-6 grid max-w-6xl gap-5 md:grid-cols-2 lg:grid-cols-4">
-                {paths.map((c, i) => {
+                {paths.filter((c) => !c.hideFromGrid).map((c, i) => {
                     const Icon = c.icon;
                     return (
                         <Tilt key={c.href} className="h-full">

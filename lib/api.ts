@@ -24,11 +24,15 @@ api.interceptors.request.use((config) => {
 // token kedaluwarsa / tidak valid → bersihkan
 api.interceptors.response.use(
     (res) => res,
-    (err) => {
-        if (err.response?.status === 401) {
+    (error) => {
+        if (typeof window !== "undefined" && error?.response?.status === 401) {
             Cookies.remove(TOKEN_KEY);
+            const path = window.location.pathname;
+            // hindari loop di halaman login/publik
+            if (path.startsWith("/app") && path !== "/app/login") window.location.replace("/app/login");
+            else if (path.startsWith("/sekolah") && path !== "/sekolah/login") window.location.replace("/sekolah/login");
         }
-        return Promise.reject(err);
+        return Promise.reject(error);
     }
 );
 

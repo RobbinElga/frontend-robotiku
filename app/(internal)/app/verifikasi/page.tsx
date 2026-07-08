@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Eye, Loader2, Check, X, MessageCircle, FileText } from "lucide-react";
+import { Eye, Loader2, Check, X, MessageCircle, FileText, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
+import { useConfirm } from "@/components/ui/confirm";
 import { cn } from "@/lib/utils";
 import { DrawerHeader } from "@/components/ui/drawer-header";
 
@@ -52,7 +53,7 @@ function VerifikasiInner() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Verifikasi Pembayaran</h1>
-                <p className="text-sm text-muted-foreground">Periksa bukti bayar lalu setujui atau tolak.</p>
+                <p className="text-sm text-muted-foreground">Periksa bukti bayar lalu setujui atau tolak. Pendaftar baru jadi siswa setelah diverifikasi.</p>
             </div>
 
             <div className="flex gap-2">
@@ -108,6 +109,7 @@ function VerifikasiInner() {
 }
 
 function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
+    const confirm = useConfirm();
     const [notes, setNotes] = useState("");
     const [err, setErr] = useState<string | null>(null);
 
@@ -125,14 +127,29 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
         onError: (e: any) => setErr(e?.response?.status === 422 ? (e.response.data.message ?? "Alasan wajib diisi untuk penolakan.") : apiError(e)),
     });
     const wa = useMutation({ mutationFn: async () => (await api.get<ApiEnvelope<{ url: string }>>(`/bayar/invoices/${payment.invoice_id}/wa`)).data.data, onSuccess: (d) => window.open(d.url, "_blank") });
+    const del = useMutation({
+        mutationFn: async () => api.delete(`/bayar/payments/${payment.id}`),
+        onSuccess: onDone,
+        onError: (e: any) => setErr(apiError(e, "Gagal menghapus pendaftaran.")),
+    });
+
+    const onDelete = async () => {
+        const ok = await confirm({
+            title: "Hapus pendaftaran?",
+            description: `Pendaftaran ${payment.invoice.student.name} beserta tagihan & bukti bayarnya akan dihapus permanen. Hanya bisa untuk yang belum terverifikasi.`,
+            confirmText: "Hapus", variant: "destructive",
+        });
+        if (ok) del.mutate();
+    };
+
     const pending = payment.status === "menunggu_verifikasi";
+    const canDelete = payment.status !== "diverifikasi"; // belum jadi siswa
 
     return (
         <div>
             <DrawerHeader title={payment.invoice.student.name} subtitle={payment.invoice.invoice_number}
                 badge={<Badge variant="outline" className={cn("capitalize", statusCls[payment.status])}>{payment.status.replace("_", " ")}</Badge>} />
 
-            {/* highlight jumlah */}
             <div className="mb-4 flex items-center justify-between rounded-xl border bg-primary/5 p-4">
                 <div>
                     <p className="text-xs text-muted-foreground">Jumlah tagihan</p>
@@ -141,7 +158,6 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
                 <Badge variant="secondary" className="capitalize">{payment.uploader_type === "school_admin" ? "Admin Sekolah" : "Orang Tua"}</Badge>
             </div>
 
-            {/* bukti */}
             <p className="mb-2 text-sm font-semibold">Bukti Pembayaran</p>
             <div className="rounded-lg border p-2">
                 {proof.isLoading && <div className="grid h-48 place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
@@ -162,6 +178,16 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
                         <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("approve"); }}><Check className="mr-2 h-4 w-4" /> Setujui</Button>
                         <Button variant="destructive" className="flex-1" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("reject"); }}><X className="mr-2 h-4 w-4" /> Tolak</Button>
                     </div>
+                </div>
+            )}
+
+            {canDelete && (
+                <div className="mt-4 rounded-xl border border-dashed border-rose-200 p-4">
+                    <p className="text-xs text-muted-foreground">Pendaftaran ini belum terverifikasi (belum menjadi siswa). Hapus jika batal / tidak jadi bayar.</p>
+                    {!pending && err && <p className="mt-2 text-sm text-destructive">{err}</p>}
+                    <Button variant="outline" size="sm" className="mt-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700" disabled={del.isPending} onClick={onDelete}>
+                        {del.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Hapus Pendaftaran
+                    </Button>
                 </div>
             )}
         </div>
