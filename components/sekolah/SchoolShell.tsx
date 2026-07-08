@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, Wallet, History, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, BadgeCheck, History, Landmark, CreditCard, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-store";
 import { useConfirm } from "@/components/ui/confirm";
@@ -12,10 +12,14 @@ import { cn } from "@/lib/utils";
 
 const NAV: NavItem[] = [
     { href: "/sekolah/dashboard", label: "Beranda", icon: LayoutDashboard },
-    { href: "/sekolah/siswa", label: "Murid", icon: Users },
-    { href: "/sekolah/pembayaran", label: "Pembayaran", icon: Wallet },
+    { href: "/sekolah/murid", label: "Murid", icon: Users },
+    { href: "/sekolah/pembayaran-masuk", label: "Verifikasi Bayar", icon: BadgeCheck },
     { href: "/sekolah/riwayat", label: "Riwayat", icon: History },
+    { href: "/sekolah/setoran", label: "Setoran Robotiku", icon: Landmark },
+    { href: "/sekolah/rekening", label: "Rekening", icon: CreditCard },
 ];
+// BottomNav maksimal 5 ikon → Rekening dilepas dari mobile (tetap ada di sidebar)
+const MOBILE_NAV: NavItem[] = NAV.filter((n) => n.href !== "/sekolah/rekening");
 
 export function SchoolShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -79,7 +83,7 @@ export function SchoolShell({ children }: { children: React.ReactNode }) {
                 <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
             </div>
 
-            {isMobile && <BottomNav items={NAV} />}
+            {isMobile && <BottomNav items={MOBILE_NAV} />}
         </div>
     );
 }

@@ -1,276 +1,241 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Plus, Eye, Loader2, Search, Save, ShieldCheck, Pencil, Building2, MapPin, Phone, CreditCard, User } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { api, apiError, type ApiEnvelope } from "@/lib/api";
-import { useAuth } from "@/lib/auth-store";
-import { useConfirm } from "@/components/ui/confirm";
+import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Eye, Pencil, Trash2 } from "lucide-react";
+import { api, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { PageHeader } from "@/components/ui/page-header";
-import { DrawerHeader } from "@/components/ui/drawer-header";
-import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const statuses = ["prospek", "dalam_proses", "sudah_mou", "tidak_lanjut"];
-const statusLabel: Record<string, string> = { prospek: "Prospek", dalam_proses: "Dalam Proses", sudah_mou: "Sudah MOU", tidak_lanjut: "Tidak Lanjut" };
-const statusCls: Record<string, string> = {
-    prospek: "bg-sky-50 text-sky-700 border-sky-200", dalam_proses: "bg-amber-50 text-amber-700 border-amber-200",
-    sudah_mou: "bg-emerald-50 text-emerald-700 border-emerald-200", tidak_lanjut: "bg-rose-50 text-rose-700 border-rose-200",
+type School = {
+    id: number; name: string; address: string | null; pic_name: string | null; contact: string | null;
+    commission_percent: number; pipeline_status: string; is_mou: boolean;
 };
-type School = { id: number; name: string; pic_name: string | null; contact: string | null; pipeline_status: string; is_mou: boolean };
 type Kpi = { total: number; prospek: number; dalam_proses: number; sudah_mou: number; tidak_lanjut: number };
-type ListResp = { kpi: Kpi; schools: { data: School[]; current_page: number; last_page: number; total: number } };
 
-function CanvasInner() {
+const STATUS: Record<string, { label: string; cls: string }> = {
+    prospek: { label: "Prospek", cls: "border-slate-200 bg-slate-50 text-slate-700" },
+    dalam_proses: { label: "Dalam Proses", cls: "border-amber-200 bg-amber-50 text-amber-700" },
+    sudah_mou: { label: "MoU", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+    tidak_lanjut: { label: "Tidak Lanjut", cls: "border-red-200 bg-red-50 text-red-700" },
+};
+const ORDER = ["prospek", "dalam_proses", "sudah_mou", "tidak_lanjut"];
+
+export default function CanvasPage() {
+    const router = useRouter();
     const qc = useQueryClient();
+    const confirm = useConfirm();
     const [search, setSearch] = useState("");
-    const [statusF, setStatusF] = useState("semua");
-    const [page, setPage] = useState(1);
-    const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [addOpen, setAddOpen] = useState(false);
+    const [filter, setFilter] = useState("");
+    const [creating, setCreating] = useState(false);
+    const [edit, setEdit] = useState<School | null>(null);
 
-    const list = useQuery({
-        queryKey: ["canvas", { search, statusF, page }],
-        queryFn: async () => (await api.get<ApiEnvelope<ListResp>>("/canvas/schools", { params: { search: search || undefined, status: statusF === "semua" ? undefined : statusF, page } })).data.data,
-        placeholderData: keepPreviousData,
+    const { data, isLoading } = useQuery({
+        queryKey: ["canvas", search, filter],
+        staleTime: 0,
+        refetchOnMount: "always",
+        queryFn: async () => {
+            const env = (await api.get<ApiEnvelope<{ kpi: Kpi; schools: { data: School[] } }>>("/canvas/schools", {
+                params: { per_page: 200, search: search || undefined, status: filter || undefined },
+            })).data.data;
+            return { kpi: env.kpi, rows: env.schools?.data ?? [] };
+        },
     });
-    const kpi = list.data?.kpi;
-    const p = list.data?.schools;
-    const rows = p?.data ?? [];
-    const refresh = () => qc.invalidateQueries({ queryKey: ["canvas"] });
 
-    const kpiCards = [
-        { l: "Total", v: kpi?.total }, { l: "Prospek", v: kpi?.prospek }, { l: "Dalam Proses", v: kpi?.dalam_proses },
-        { l: "Sudah MOU", v: kpi?.sudah_mou }, { l: "Tidak Lanjut", v: kpi?.tidak_lanjut },
-    ];
+    const rows = data?.rows ?? [];
+    const kpi = data?.kpi;
+    const count = (st: string) => (kpi ? (kpi as any)[st] ?? 0 : 0);
+
+    const del = useMutation({
+        mutationFn: async (id: number) => api.delete(`/canvas/schools/${id}`),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["canvas"] }),
+        onError: (e: any) => alert(e?.response?.data?.message ?? "Gagal menghapus."),
+    });
+    const onDelete = async (s: School) => {
+        if (await confirm({ title: "Hapus sekolah?", description: `"${s.name}" akan dihapus permanen.`, confirmText: "Hapus", variant: "destructive" }))
+            del.mutate(s.id);
+    };
 
     return (
-        <div className="space-y-6">
-            <PageHeader title="Canvas — CRM Sekolah" subtitle="Pipeline sekolah mitra. Status “Sudah MOU” membuka pendaftaran via instansi."
-                action={<Button onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" /> Tambah Sekolah</Button>} />
+        <InternalShell>
+            <PageHeader
+                title="Canvas Robotiku"
+                subtitle="Pipeline CRM sekolah mitra."
+                action={<Button onClick={() => setCreating(true)}><Plus className="mr-1.5 h-4 w-4" /> <span className="hidden sm:inline">Tambah Sekolah</span><span className="sm:hidden">Tambah</span></Button>}
+            />
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                {kpiCards.map((c) => (
-                    <Card key={c.l}><CardHeader className="pb-1"><CardTitle className="text-xs font-medium text-muted-foreground">{c.l}</CardTitle></CardHeader>
-                        <CardContent>{list.isLoading ? <Skeleton className="h-7 w-10" /> : <div className="text-xl font-semibold">{c.v ?? 0}</div>}</CardContent></Card>
+            {/* KPI */}
+            <div className="mt-5 mb-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+                {ORDER.map((st) => (
+                    <button key={st} onClick={() => setFilter(filter === st ? "" : st)}
+                        className={`rounded-xl border p-3 text-left transition sm:p-4 ${filter === st ? "ring-2 ring-primary" : ""} ${STATUS[st].cls}`}>
+                        <div className="text-xl font-bold sm:text-2xl">{count(st)}</div>
+                        <div className="text-[11px] font-medium sm:text-xs">{STATUS[st].label}</div>
+                    </button>
                 ))}
             </div>
 
-            <Card className="overflow-hidden">
-                <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="relative w-full sm:w-72">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input className="pl-9" placeholder="Cari nama sekolah…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-                    </div>
-                    <Select value={statusF} onValueChange={(v) => { setStatusF(v ?? "semua"); setPage(1); }}>
-                        <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="semua">Semua status</SelectItem>{statuses.map((s) => <SelectItem key={s} value={s}>{statusLabel[s]}</SelectItem>)}</SelectContent>
-                    </Select>
-                </div>
-                <Table>
-                    <TableHeader><TableRow><TableHead>Sekolah</TableHead><TableHead>PIC</TableHead><TableHead>Kontak</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                        {list.isLoading && Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-9 w-full" /></TableCell></TableRow>))}
-                        {rows.map((s) => (
-                            <TableRow key={s.id} className="cursor-pointer" onClick={() => setSelectedId(s.id)}>
-                                <TableCell className="font-medium">{s.name} {s.is_mou && <Badge variant="outline" className="ml-1 border-emerald-200 bg-emerald-50 text-emerald-700">MOU</Badge>}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{s.pic_name ?? "—"}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{s.contact ?? "—"}</TableCell>
-                                <TableCell><Badge variant="outline" className={cn(statusCls[s.pipeline_status])}>{statusLabel[s.pipeline_status]}</Badge></TableCell>
-                                <TableCell className="text-right"><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedId(s.id); }}><Eye className="h-4 w-4" /></Button></TableCell>
-                            </TableRow>
-                        ))}
-                        {!list.isLoading && rows.length === 0 && <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Belum ada sekolah.</TableCell></TableRow>}
-                    </TableBody>
-                </Table>
-                {p && (
-                    <div className="flex items-center justify-between border-t p-4 text-sm text-muted-foreground">
-                        <span>Total {p.total} · Halaman {p.current_page}/{p.last_page}</span>
-                        <div className="flex gap-1">
-                            <Button size="icon" variant="outline" disabled={p.current_page <= 1} onClick={() => setPage((x) => x - 1)}>‹</Button>
-                            <Button size="icon" variant="outline" disabled={p.current_page >= p.last_page} onClick={() => setPage((x) => x + 1)}>›</Button>
-                        </div>
-                    </div>
-                )}
-            </Card>
-
-            <AddSchool open={addOpen} onOpenChange={setAddOpen} onSaved={() => { setAddOpen(false); refresh(); }} />
-
-            <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
-                <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-xl">
-                    {selectedId && <Detail id={selectedId} onChanged={refresh} />}
-                </SheetContent>
-            </Sheet>
-        </div>
-    );
-}
-
-function AddSchool({ open, onOpenChange, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
-    const [form, setForm] = useState({ name: "", address: "", pic_name: "", contact: "", bank_account: "", pipeline_status: "prospek" });
-    const [err, setErr] = useState<string | null>(null);
-    const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
-    const create = useMutation({ mutationFn: async () => (await api.post("/canvas/schools", form)).data, onSuccess: onSaved, onError: (e) => setErr(apiError(e, "Gagal menyimpan.")) });
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Sekolah Baru</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                    <div><Label>Nama sekolah *</Label><Input className="mt-1" value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
-                    <div><Label>Alamat</Label><Input className="mt-1" value={form.address} onChange={(e) => set("address", e.target.value)} /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div><Label>PIC</Label><Input className="mt-1" value={form.pic_name} onChange={(e) => set("pic_name", e.target.value)} /></div>
-                        <div><Label>Kontak</Label><Input className="mt-1" value={form.contact} onChange={(e) => set("contact", e.target.value)} /></div>
-                    </div>
-                    <div><Label>No. Rekening</Label><Input className="mt-1" value={form.bank_account} onChange={(e) => set("bank_account", e.target.value)} /></div>
-                    <div><Label>Status</Label>
-                        <Select value={form.pipeline_status} onValueChange={(v) => set("pipeline_status", v ?? "prospek")}>
-                            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                            <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{statusLabel[s]}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </div>
-                    {err && <p className="text-sm text-destructive">{err}</p>}
-                    <Button className="w-full" disabled={!form.name || create.isPending} onClick={() => { setErr(null); create.mutate(); }}>
-                        {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function Detail({ id, onChanged }: { id: number; onChanged: () => void }) {
-    const role = useAuth((s) => (s.actor?.kind === "user" ? s.actor.role : ""));
-    const canEdit = role === "admin" || role === "super_admin";
-    const q = useQuery({ queryKey: ["canvas-detail", id], queryFn: async () => (await api.get(`/canvas/schools/${id}`)).data.data });
-    const school = q.data;
-    const logs = school?.status_logs ?? school?.statusLogs ?? [];
-
-    const [status, setStatus] = useState(""); const [statusNote, setStatusNote] = useState(""); const [note, setNote] = useState(""); const [editOpen, setEditOpen] = useState(false);
-    if (school && status === "") setStatus(school.pipeline_status);
-    const invalidate = () => { q.refetch(); onChanged(); };
-
-    const changeStatus = useMutation({ mutationFn: async () => (await api.patch(`/canvas/schools/${id}/status`, { pipeline_status: status, note: statusNote || undefined })).data, onSuccess: () => { setStatusNote(""); invalidate(); } });
-    const addNote = useMutation({ mutationFn: async () => (await api.post(`/canvas/schools/${id}/notes`, { note })).data, onSuccess: () => { setNote(""); invalidate(); } });
-
-    if (q.isLoading || !school) return <div className="grid h-full place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
-
-    const info = [
-        { l: "Alamat", v: school.address, icon: MapPin }, { l: "PIC", v: school.pic_name, icon: User },
-        { l: "Kontak", v: school.contact, icon: Phone }, { l: "Rekening", v: school.bank_account, icon: CreditCard },
-    ];
-
-    return (
-        <div>
-            <DrawerHeader title={school.name} subtitle="Sekolah mitra"
-                badge={<div className="flex gap-1"><Badge variant="outline" className={statusCls[school.pipeline_status]}>{statusLabel[school.pipeline_status]}</Badge>{school.is_mou && <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700"><ShieldCheck className="mr-1 h-3.5 w-3.5" />MOU</Badge>}</div>} />
-
-            <div className="space-y-6">
-                {/* data */}
-                <div className="rounded-xl border p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                        <p className="flex items-center gap-2 text-sm font-semibold"><Building2 className="h-4 w-4" /> Data Sekolah</p>
-                        {canEdit && <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit</Button>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        {info.map((i) => {
-                            const I = i.icon; return (
-                                <div key={i.l} className="rounded-lg border bg-muted/30 p-3">
-                                    <p className="flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground"><I className="h-3 w-3" /> {i.l}</p>
-                                    <p className="mt-1 text-sm font-medium">{i.v || "—"}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* status */}
-                <div className="rounded-xl border p-4">
-                    <p className="mb-3 text-sm font-semibold">Ubah Status Pipeline</p>
-                    <Select value={status} onValueChange={(v) => setStatus(v ?? school.pipeline_status)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{statusLabel[s]}</SelectItem>)}</SelectContent>
-                    </Select>
-                    {status === "sudah_mou" && <p className="mt-2 text-xs text-emerald-700">Sekolah ini akan bisa mendaftarkan murid via instansi.</p>}
-                    <Textarea className="mt-3" rows={2} placeholder="Catatan perubahan (opsional)" value={statusNote} onChange={(e) => setStatusNote(e.target.value)} />
-                    <Button className="mt-3" size="sm" disabled={status === school.pipeline_status || changeStatus.isPending} onClick={() => changeStatus.mutate()}>
-                        {changeStatus.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Status"}
-                    </Button>
-                </div>
-
-                {/* catatan */}
-                <div className="rounded-xl border p-4">
-                    <p className="mb-3 text-sm font-semibold">Catatan Audit</p>
-                    <div className="flex gap-2">
-                        <Input placeholder="Tambah catatan…" value={note} onChange={(e) => setNote(e.target.value)} />
-                        <Button size="sm" disabled={!note || addNote.isPending} onClick={() => addNote.mutate()}>Tambah</Button>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                        {school.notes?.map((n: any) => (
-                            <div key={n.id} className="rounded-md border bg-muted/30 p-2 text-sm">
-                                <p>{n.note}</p><p className="mt-1 text-xs text-muted-foreground">{n.creator?.name ?? "Staf"} • {n.created_at?.slice(0, 16).replace("T", " ")}</p>
-                            </div>
-                        ))}
-                        {(!school.notes || school.notes.length === 0) && <p className="text-sm text-muted-foreground">Belum ada catatan.</p>}
-                    </div>
-                </div>
-
-                {/* log */}
-                <div>
-                    <p className="mb-4 text-sm font-semibold">Riwayat Status (Immutable)</p>
-                    <div className="relative space-y-5 pl-4 before:absolute before:inset-y-0 before:left-[5px] before:w-px before:bg-border">
-                        {logs.map((log: any) => (
-                            <div key={log.id} className="relative">
-                                <span className={cn("absolute -left-[14px] top-1 h-3 w-3 rounded-full border-2 border-background", log.new_status === "sudah_mou" ? "bg-emerald-500" : "bg-primary")} />
-                                <p className="text-sm font-medium">{log.old_status ? `${statusLabel[log.old_status]} → ${statusLabel[log.new_status]}` : `Dibuat (${statusLabel[log.new_status]})`}</p>
-                                <p className="text-xs text-muted-foreground">{log.created_at?.slice(0, 16).replace("T", " ")}</p>
-                                {log.note && <p className="mt-1 inline-block rounded bg-muted/40 p-2 text-sm">{log.note}</p>}
-                            </div>
-                        ))}
-                        {logs.length === 0 && <p className="text-sm text-muted-foreground">Belum ada perubahan.</p>}
-                    </div>
-                </div>
+            <div className="mb-4 relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Cari sekolah…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
 
-            <EditSchoolDialog school={school} open={editOpen} onOpenChange={setEditOpen} onSaved={() => { setEditOpen(false); invalidate(); }} />
-        </div>
+            {/* DESKTOP: tabel */}
+            <Card className="hidden overflow-hidden md:block">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Sekolah</TableHead>
+                            <TableHead>PIC</TableHead>
+                            <TableHead>Kontak</TableHead>
+                            <TableHead>Komisi</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>{Array.from({ length: 6 }).map((_, j) => (
+                                    <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>))}</TableRow>))
+                        ) : rows.length ? (
+                            rows.map((s) => (
+                                <TableRow key={s.id}>
+                                    <TableCell className="font-medium">{s.name}</TableCell>
+                                    <TableCell className="text-muted-foreground">{s.pic_name ?? "—"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{s.contact ?? "—"}</TableCell>
+                                    <TableCell>{Number(s.commission_percent)}%</TableCell>
+                                    <TableCell><Badge variant="outline" className={STATUS[s.pipeline_status]?.cls}>{STATUS[s.pipeline_status]?.label}</Badge></TableCell>
+                                    <TableCell>
+                                        <div className="flex justify-end gap-1">
+                                            <Button size="icon" variant="ghost" onClick={() => router.push(`/app/canvas/${s.id}`)} title="Detail"><Eye className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" onClick={() => setEdit(s)} title="Edit"><Pencil className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => onDelete(s)} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow><TableCell colSpan={6} className="py-10 text-center text-muted-foreground">Tidak ada sekolah.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </Card>
+
+            {/* MOBILE: card list */}
+            <div className="space-y-3 md:hidden">
+                {isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
+                ) : rows.length ? (
+                    rows.map((s) => (
+                        <Card key={s.id} className="p-4">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <div className="truncate font-semibold">{s.name}</div>
+                                    <div className="mt-0.5 text-xs text-muted-foreground">{s.pic_name || "—"} · {s.contact || "—"}</div>
+                                </div>
+                                <Badge variant="outline" className={STATUS[s.pipeline_status]?.cls}>{STATUS[s.pipeline_status]?.label}</Badge>
+                            </div>
+                            <div className="mt-2 text-xs text-muted-foreground">Komisi {Number(s.commission_percent)}%</div>
+                            <div className="mt-3 flex gap-2">
+                                <Button size="sm" variant="outline" className="flex-1" onClick={() => router.push(`/app/canvas/${s.id}`)}><Eye className="mr-1 h-4 w-4" /> Detail</Button>
+                                <Button size="sm" variant="outline" onClick={() => setEdit(s)}><Pencil className="h-4 w-4" /></Button>
+                                <Button size="sm" variant="outline" className="text-red-600" onClick={() => onDelete(s)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                        </Card>
+                    ))
+                ) : (
+                    <p className="py-10 text-center text-sm text-muted-foreground">Tidak ada sekolah.</p>
+                )}
+            </div>
+
+            <SchoolDialog open={creating} school={null} onClose={() => setCreating(false)} />
+            <SchoolDialog open={!!edit} school={edit} onClose={() => setEdit(null)} />
+        </InternalShell>
     );
 }
 
-function EditSchoolDialog({ school, open, onOpenChange, onSaved }: { school: any; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
-    const confirm = useConfirm();
-    const [d, setD] = useState({ name: school.name, address: school.address ?? "", pic_name: school.pic_name ?? "", contact: school.contact ?? "", bank_account: school.bank_account ?? "" });
-    const set = (k: string, v: string) => setD((s: any) => ({ ...s, [k]: v }));
-    const save = useMutation({ mutationFn: async () => (await api.put(`/canvas/schools/${school.id}`, d)).data, onSuccess: onSaved });
+function SchoolDialog({ open, school, onClose }: { open: boolean; school: School | null; onClose: () => void }) {
+    const qc = useQueryClient();
+    const router = useRouter();
+    const isEdit = !!school;
+    const [form, setForm] = useState({ name: "", address: "", pic_name: "", contact: "", commission_percent: "10" });
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
+    const [seeded, setSeeded] = useState<number | "new" | null>(null);
+
+    const key = school ? school.id : "new";
+    if (open && seeded !== key) {
+        setForm({
+            name: school?.name ?? "", address: school?.address ?? "", pic_name: school?.pic_name ?? "",
+            contact: school?.contact ?? "", commission_percent: school ? String(school.commission_percent) : "10",
+        });
+        setErrors({}); setSeeded(key);
+    }
+    if (!open && seeded !== null) setSeeded(null);
+
+    const save = useMutation({
+        mutationFn: async () => {
+            const payload = { ...form, commission_percent: Number(form.commission_percent || 0) };
+            return isEdit
+                ? (await api.put<ApiEnvelope<{ id: number }>>(`/canvas/schools/${school!.id}`, payload)).data
+                : (await api.post<ApiEnvelope<{ id: number }>>("/canvas/schools", payload)).data;
+        },
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ["canvas"] });
+            onClose();
+            if (!isEdit && res?.data?.id) router.push(`/app/canvas/${res.data.id}`);
+        },
+        onError: (e: any) => { if (e?.response?.status === 422) setErrors(e.response.data.errors ?? {}); },
+    });
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Edit Data Sekolah</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                    <div><Label>Nama</Label><Input className="mt-1" value={d.name} onChange={(e) => set("name", e.target.value)} /></div>
-                    <div><Label>Alamat</Label><Input className="mt-1" value={d.address} onChange={(e) => set("address", e.target.value)} /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div><Label>PIC</Label><Input className="mt-1" value={d.pic_name} onChange={(e) => set("pic_name", e.target.value)} /></div>
-                        <div><Label>Kontak</Label><Input className="mt-1" value={d.contact} onChange={(e) => set("contact", e.target.value)} /></div>
+        <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader><DialogTitle>{isEdit ? "Edit Sekolah" : "Tambah Sekolah"}</DialogTitle></DialogHeader>
+                <form onSubmit={(e) => { e.preventDefault(); setErrors({}); save.mutate(); }} className="space-y-4">
+                    <Field label="Nama Sekolah" error={errors.name}>
+                        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                    </Field>
+                    <Field label="Alamat" error={errors.address}>
+                        <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                    </Field>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Field label="PIC" error={errors.pic_name}>
+                            <Input value={form.pic_name} onChange={(e) => setForm({ ...form, pic_name: e.target.value })} />
+                        </Field>
+                        <Field label="No. WA" error={errors.contact}>
+                            <Input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} />
+                        </Field>
                     </div>
-                    <div><Label>No. Rekening</Label><Input className="mt-1" value={d.bank_account} onChange={(e) => set("bank_account", e.target.value)} /></div>
-                    <Button className="w-full" disabled={save.isPending} onClick={async () => { if (await confirm({ title: "Simpan perubahan data sekolah?" })) save.mutate(); }}>
-                        {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="mr-2 h-4 w-4" /> Simpan</>}
-                    </Button>
-                </div>
+                    <Field label="Komisi (%)" error={errors.commission_percent}>
+                        <Input type="number" min={0} max={100} value={form.commission_percent} onChange={(e) => setForm({ ...form, commission_percent: e.target.value })} />
+                    </Field>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={onClose}>Batal</Button>
+                        <Button type="submit" disabled={save.isPending}>{save.isPending ? "Menyimpan…" : isEdit ? "Simpan" : "Buat"}</Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     );
 }
 
-export default function Page() { return <InternalShell><CanvasInner /></InternalShell>; }
+function Field({ label, error, children }: { label: string; error?: string[]; children: React.ReactNode }) {
+    return (
+        <div className="space-y-1.5">
+            <Label>{label}</Label>
+            {children}
+            {error && <p className="text-xs text-red-600">{error[0]}</p>}
+        </div>
+    );
+}

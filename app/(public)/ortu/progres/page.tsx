@@ -1,80 +1,116 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, UserX, CalendarOff, ListChecks } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CalendarCheck, ChevronRight, ImageIcon } from "lucide-react";
+import { api, type ApiEnvelope } from "@/lib/api";
+import { ParentShell } from "@/components/ortu/ParentShell";
+import { useParent } from "@/lib/parent-store";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, type ApiEnvelope } from "@/lib/api";
-import { useParent } from "@/lib/parent-store";
-import { ParentShell } from "@/components/ortu/ParentShell";
-import { cn } from "@/lib/utils";
 
-type Att = { id: number; status: "hadir" | "izin" | "tidak_hadir"; report: string | null; attended_at: string };
-type Progress = { summary: { hadir: number; izin: number; tidak_hadir: number; total_sesi: number }; attendances: Att[] };
-
-const sb: Record<string, { label: string; cls: string }> = {
-    hadir: { label: "Hadir", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    izin: { label: "Izin", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-    tidak_hadir: { label: "Tidak hadir", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+type Att = { id: number; status: string; report: string | null; has_photo: boolean; attended_at: string };
+type Progress = {
+    student: { id: number; name: string; student_code: string; status: string };
+    summary: { hadir: number; izin: number; tidak_hadir: number; total_sesi: number };
+    attendances: Att[];
 };
 
-function ProgresInner() {
+const ST: Record<string, { label: string; cls: string; dot: string }> = {
+    hadir: { label: "Hadir", cls: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+    izin: { label: "Izin", cls: "border-blue-200 bg-blue-50 text-blue-700", dot: "bg-blue-500" },
+    sakit: { label: "Sakit", cls: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+    tanpa_keterangan: { label: "Tanpa Keterangan", cls: "border-red-200 bg-red-50 text-red-700", dot: "bg-red-500" },
+    tidak_hadir: { label: "Tidak Hadir", cls: "border-red-200 bg-red-50 text-red-700", dot: "bg-red-500" },
+};
+
+const tgl = (s: string) => new Date(s).toLocaleDateString("id-ID", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+
+export default function OrtuProgres() {
     const parent = useParent((s) => s.parent)!;
-    const q = useQuery({
+
+    const { data, isLoading } = useQuery({
         queryKey: ["ortu-progres", parent.studentId],
-        queryFn: async () => (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent.studentId, phone: parent.phone })).data.data,
+        enabled: !!parent?.studentId,
+        queryFn: async () =>
+            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent.studentId, phone: parent.phone })).data.data,
     });
 
-    const cards = [
-        { label: "Hadir", value: q.data?.summary.hadir, icon: CalendarCheck },
-        { label: "Izin", value: q.data?.summary.izin, icon: UserX },
-        { label: "Tidak Hadir", value: q.data?.summary.tidak_hadir, icon: CalendarOff },
-        { label: "Total Sesi", value: q.data?.summary.total_sesi, icon: ListChecks },
-    ];
+    const sum = data?.summary;
+    const total = sum?.total_sesi ?? 0;
+    const persenHadir = total > 0 ? Math.round(((sum?.hadir ?? 0) / total) * 100) : 0;
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Progres & Kehadiran</h1>
-                <p className="text-sm text-muted-foreground">Ringkasan kehadiran dan catatan sesi {parent.name}.</p>
-            </div>
+        <ParentShell>
+            <PageHeader
+                title="Progres Belajar"
+                subtitle={data ? `${data.student.name} · ${data.student.student_code}` : "Riwayat kehadiran & catatan trainer."}
+            />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {cards.map(({ label, value, icon: Icon }) => (
-                    <Card key={label}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-                            <Icon className="h-4 w-4 text-primary" />
-                        </CardHeader>
-                        <CardContent>{q.isLoading ? <Skeleton className="h-8 w-12" /> : <div className="text-2xl font-semibold">{value ?? 0}</div>}</CardContent>
+            {isLoading || !data || !sum ? (
+                <div className="space-y-4">
+                    <Skeleton className="h-28 rounded-xl" />
+                    <Skeleton className="h-64 rounded-xl" />
+                </div>
+            ) : (
+                <div className="mt-4 space-y-6">
+                    {/* Ringkasan */}
+                    <Card className="border-2 p-5">
+                        <div className="mb-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm font-semibold"><CalendarCheck className="h-4 w-4" /> Ringkasan Kehadiran</div>
+                            <span className="text-sm font-semibold text-emerald-600">{persenHadir}% hadir</span>
+                        </div>
+                        <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+                            {total > 0 && (["hadir", "izin", "tidak_hadir"] as const).map((k) =>
+                                sum[k] > 0 ? <div key={k} className={ST[k].dot} style={{ width: `${(sum[k] / total) * 100}%` }} /> : null
+                            )}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {(["hadir", "izin", "tidak_hadir"] as const).map((k) => (
+                                <span key={k} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">
+                                    <span className={`h-2 w-2 rounded-full ${ST[k].dot}`} /> {ST[k].label} {sum[k]}
+                                </span>
+                            ))}
+                            <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold">Total {total} sesi</span>
+                        </div>
                     </Card>
-                ))}
-            </div>
 
-            <Card>
-                <CardHeader><CardTitle className="text-base">Riwayat Sesi</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                    {q.isLoading && <Skeleton className="h-16 w-full" />}
-                    {q.data?.attendances.map((a) => {
-                        const s = sb[a.status];
-                        return (
-                            <div key={a.id} className="flex items-start justify-between gap-3 rounded-lg border p-4">
-                                <div>
-                                    <p className="text-xs text-muted-foreground">{a.attended_at?.slice(0, 10)}</p>
-                                    <p className="mt-1 text-sm">{a.report || <span className="text-muted-foreground">Tidak ada catatan.</span>}</p>
-                                </div>
-                                <Badge variant="outline" className={cn(s.cls)}>{s.label}</Badge>
-                            </div>
-                        );
-                    })}
-                    {q.data && q.data.attendances.length === 0 && <p className="text-center text-sm text-muted-foreground">Belum ada sesi.</p>}
-                </CardContent>
-            </Card>
-        </div>
+                    {/* Timeline (klik → detail) */}
+                    <div className="space-y-3">
+                        {data.attendances.length ? (
+                            data.attendances.map((a) => {
+                                const m = ST[a.status] ?? ST.tidak_hadir;
+                                return (
+                                    <Link key={a.id} href={`/ortu/progres/${a.id}`} className="block">
+                                        <Card className="group overflow-hidden border-2 transition hover:border-primary/40 hover:shadow-sm">
+                                            <div className="flex items-center">
+                                                <div className={`w-1.5 shrink-0 self-stretch ${m.dot}`} />
+                                                <div className="min-w-0 flex-1 p-4">
+                                                    <div className="text-sm font-medium">{tgl(a.attended_at)}</div>
+                                                    <div className="mt-1 flex items-center gap-2">
+                                                        <Badge variant="outline" className={m.cls}>{m.label}</Badge>
+                                                        {a.has_photo && (
+                                                            <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                                                <ImageIcon className="h-3 w-3" /> Foto
+                                                            </span>
+                                                        )}
+                                                        {a.report && <span className="truncate text-xs text-muted-foreground">Ada catatan trainer</span>}
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="mr-3 h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
+                                            </div>
+                                        </Card>
+                                    </Link>
+                                );
+                            })
+                        ) : (
+                            <Card className="border-2 p-10 text-center text-sm text-muted-foreground">Belum ada riwayat sesi.</Card>
+                        )}
+                    </div>
+                </div>
+            )}
+        </ParentShell>
     );
-}
-
-export default function Page() {
-    return <ParentShell><ProgresInner /></ParentShell>;
 }

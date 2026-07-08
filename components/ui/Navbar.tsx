@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Bot, ChevronDown, type LucideIcon } from "lucide-react";
 import { paths } from "@/lib/paths";
+import Image from "next/image";
 
 export function Navbar() {
     const [open, setOpen] = useState<null | "masuk" | "daftar">(null);
@@ -43,9 +44,14 @@ export function Navbar() {
 
     return (
         <nav className="mx-auto mt-5 flex max-w-6xl items-center justify-between rounded-2xl border-[3px] border-black bg-white px-5 py-3 shadow-[5px_5px_0_0_#000]">
-            <Link href="/" className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-md border-2 border-black bg-primary text-white shadow-[2px_2px_0_0_#000]"><Bot className="h-5 w-5" strokeWidth={2.5} /></span>
-                <span className="font-display text-lg font-extrabold tracking-tight">ROBOTIKU</span>
+            <Link href="/" className="flex items-center">
+                <Image
+                    src="/images/robotiku-logo.jpg"
+                    alt="RobotiKU — Funtech Education"
+                    width={200} height={64}
+                    className="h-12 w-auto object-contain md:h-14"
+                    priority
+                />
             </Link>
             <div ref={ref} className="flex items-center gap-3">
                 <Dropdown id="masuk" label="Masuk" variant="bg-white" />

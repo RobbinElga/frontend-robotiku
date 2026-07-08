@@ -1,96 +1,61 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Download, Loader2, FileText } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { Award, ChevronRight } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
-import { useParent } from "@/lib/parent-store";
 import { ParentShell } from "@/components/ortu/ParentShell";
+import { useParent } from "@/lib/parent-store";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
-type Report = {
-    id: number; semester: string; year: number;
+type Rapot = {
+    id: number; semester: number; year: number;
     skill_building: string; skill_imagination: string; skill_creativity: string; skill_logic: string;
-    behavior_punctual: string; behavior_stay: string; behavior_communication: string; behavior_responsibility: string;
-    comments: string | null;
 };
+const GRADE_CLS: Record<string, string> = { A: "bg-emerald-500", B: "bg-lime-500", C: "bg-amber-500", D: "bg-orange-500", E: "bg-red-500" };
 
-const skills = (r: Report) => ({ "Building": r.skill_building, "Imagination": r.skill_imagination, "Creativity": r.skill_creativity, "Logic": r.skill_logic });
-const behaviour = (r: Report) => ({ "Tepat waktu": r.behavior_punctual, "Tidak pulang awal": r.behavior_stay, "Komunikasi": r.behavior_communication, "Tanggung jawab": r.behavior_responsibility });
-
-function RapotInner() {
+export default function OrtuRapot() {
     const parent = useParent((s) => s.parent)!;
-    const q = useQuery({
+
+    const { data, isLoading } = useQuery({
         queryKey: ["ortu-rapot", parent.studentId],
-        queryFn: async () => (await api.post<ApiEnvelope<Report[]>>("/e-rapot/parent", { student_id: parent.studentId, phone: parent.phone })).data.data,
+        enabled: !!parent?.studentId,
+        queryFn: async () =>
+            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent.studentId, phone: parent.phone })).data.data,
     });
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-semibold tracking-tight">E-Rapot</h1>
-                <p className="text-sm text-muted-foreground">Laporan perkembangan {parent.name}.</p>
-            </div>
-
-            {q.isLoading && <Skeleton className="h-40 w-full" />}
-            <div className="grid gap-4">
-                {q.data?.map((r) => <ReportCard key={r.id} report={r} phone={parent.phone} studentCode={parent.studentCode} />)}
-                {q.data && q.data.length === 0 && (
-                    <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Belum ada E-Rapot.</CardContent></Card>
-                )}
-            </div>
-        </div>
-    );
-}
-
-function ReportCard({ report, phone, studentCode }: { report: Report; phone: string; studentCode: string }) {
-    const download = useMutation({
-        mutationFn: async () => {
-            const res = await api.post(`/e-rapot/${report.id}/parent-pdf`, { phone }, { responseType: "blob" });
-            const url = URL.createObjectURL(res.data as Blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `E-Rapot-${studentCode}-S${report.semester}-${report.year}.pdf`;
-            a.click();
-            URL.revokeObjectURL(url);
-        },
-    });
-
-    const Grades = ({ data }: { data: Record<string, string> }) => (
-        <div className="grid grid-cols-2 gap-2">
-            {Object.entries(data).map(([k, v]) => (
-                <div key={k} className="flex items-center justify-between rounded-md border px-3 py-1.5 text-sm">
-                    <span className="text-muted-foreground">{k}</span><Badge variant="secondary">{v}</Badge>
+        <ParentShell>
+            <PageHeader title="E-Rapot" subtitle="Perkembangan skill & sikap ananda per semester." />
+            {isLoading ? (
+                <div className="space-y-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+            ) : (
+                <div className="mt-4 space-y-4">
+                    {data?.length ? (
+                        data.map((r) => (
+                            <Link key={r.id} href={`/ortu/rapot/${r.id}`} className="block">
+                                <Card className="group flex items-center gap-4 border-2 p-4 transition hover:border-primary/40 hover:shadow-sm">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Award className="h-6 w-6" /></span>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-semibold">Semester {r.semester} · {r.year}</div>
+                                        <div className="mt-1.5 flex items-center gap-1.5">
+                                            {[r.skill_building, r.skill_imagination, r.skill_creativity, r.skill_logic].map((g, i) => (
+                                                <span key={i} className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white ${GRADE_CLS[g] ?? "bg-slate-400"}`}>{g}</span>
+                                            ))}
+                                            <span className="ml-1 text-xs text-muted-foreground">nilai skill</span>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
+                                </Card>
+                            </Link>
+                        ))
+                    ) : (
+                        <Card className="border-2 p-10 text-center text-sm text-muted-foreground">Belum ada E-Rapot.</Card>
+                    )}
                 </div>
-            ))}
-        </div>
+            )}
+        </ParentShell>
     );
-
-    return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="flex items-center gap-2 text-base"><FileText className="h-4 w-4 text-primary" /> Semester {report.semester} · {report.year}</CardTitle>
-                <Button size="sm" variant="outline" disabled={download.isPending} onClick={() => download.mutate()}>
-                    {download.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Download className="mr-2 h-4 w-4" /> Unduh PDF</>}
-                </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Skill</p>
-                    <Grades data={skills(report)} />
-                </div>
-                <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Behaviour</p>
-                    <Grades data={behaviour(report)} />
-                </div>
-                {report.comments && <p className="rounded-md bg-muted/40 p-3 text-sm">{report.comments}</p>}
-            </CardContent>
-        </Card>
-    );
-}
-
-export default function Page() {
-    return <ParentShell><RapotInner /></ParentShell>;
 }
