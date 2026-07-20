@@ -9,7 +9,7 @@ import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { useParent } from "@/lib/parent-store";
 import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 
-type Student = { id: number; student_code: string; name: string; verified: boolean; parent: { phone: string } };
+type Student = { id: number; student_code: string; name: string; verified: boolean; self_managed?: boolean; parent: { phone: string } };
 
 export default function OrtuLookupPage() {
     const router = useRouter();
@@ -20,9 +20,9 @@ export default function OrtuLookupPage() {
     const [msg, setMsg] = useState<string | null>(null);
 
     const pick = (s: Student) => {
-        if (!s.verified) { setBlocked(s); return; }               // belum terverifikasi → tolak masuk
-        setParent({ studentId: s.id, name: s.name, studentCode: s.student_code, phone: s.parent.phone });
-        router.push("/ortu/tagihan");
+        if (!s.verified) { setBlocked(s); return; }
+        setParent({ studentId: s.id, name: s.name, studentCode: s.student_code, phone: s.parent.phone, selfManaged: s.self_managed });
+        router.push(s.self_managed ? "/ortu/dashboard" : "/ortu/tagihan");
     };
 
     const lookup = useMutation({
@@ -70,7 +70,6 @@ export default function OrtuLookupPage() {
                     </form>
                     {msg && <p className="mt-3 text-sm font-semibold text-red-600">{msg}</p>}
 
-                    {/* belum terverifikasi */}
                     {blocked && (
                         <div className="mt-4 rounded-xl border-[3px] border-black bg-[#ffd23f] p-4 shadow-[4px_4px_0_0_#000]">
                             <p className="font-display font-extrabold">Belum bisa masuk</p>
@@ -84,7 +83,6 @@ export default function OrtuLookupPage() {
                         </div>
                     )}
 
-                    {/* pilih anak (HP dipakai beberapa anak) */}
                     {students && students.length > 1 && (
                         <div className="mt-5 space-y-2.5">
                             <p className="font-display text-sm font-bold">Pilih anak:</p>

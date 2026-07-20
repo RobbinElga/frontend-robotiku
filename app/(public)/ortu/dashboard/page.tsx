@@ -3,10 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { CalendarCheck, Wallet, GraduationCap, ClipboardList, FileText, ChevronRight, CheckCircle2 } from "lucide-react";
+import { CalendarCheck, Wallet, GraduationCap, ClipboardList, FileText, ChevronRight, CheckCircle2, Building2 } from "lucide-react";
 import { api, type ApiEnvelope } from "@/lib/api";
 import { ParentShell } from "@/components/ortu/ParentShell";
-import { useParent } from "@/lib/parent-store";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ const COLORS = { hadir: "#10b981", izin: "#3b82f6", tidak_hadir: "#ef4444" };
 
 export default function OrtuDashboard() {
     const { parent, ready } = useParentGuard();
+    const selfManaged = !!parent?.selfManaged;
 
     const progQ = useQuery({
         queryKey: ["ortu-progress", parent?.studentId],
@@ -34,7 +34,7 @@ export default function OrtuDashboard() {
     });
     const invQ = useQuery({
         queryKey: ["ortu-invoices", parent?.studentId],
-        enabled: !!parent?.studentId,
+        enabled: !!parent?.studentId && !selfManaged,   // sekolah kelola-sendiri → tak ada tagihan
         queryFn: async () =>
             (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent!.studentId, phone: parent!.phone })).data.data.invoices,
     });
@@ -45,7 +45,6 @@ export default function OrtuDashboard() {
             (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent!.studentId, phone: parent!.phone })).data.data,
     });
 
-    // semua hook di atas dipanggil dulu, baru boleh early-return
     if (!ready || !parent) {
         return (
             <ParentShell>
@@ -83,10 +82,10 @@ export default function OrtuDashboard() {
             ) : (
                 <div className="mt-4 space-y-6">
                     {/* KPI */}
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className={`grid gap-4 sm:grid-cols-2 ${selfManaged ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
                         <Kpi icon={<ClipboardList className="h-5 w-5" />} label="Total Sesi" value={s.total_sesi} tint="bg-slate-100 text-slate-700" />
                         <Kpi icon={<CalendarCheck className="h-5 w-5" />} label="Hadir" value={s.hadir} tint="bg-emerald-100 text-emerald-700" />
-                        <Kpi icon={<Wallet className="h-5 w-5" />} label="Tagihan Belum Lunas" value={belumLunas} tint="bg-amber-100 text-amber-700" />
+                        {!selfManaged && <Kpi icon={<Wallet className="h-5 w-5" />} label="Tagihan Belum Lunas" value={belumLunas} tint="bg-amber-100 text-amber-700" />}
                         <Kpi icon={<GraduationCap className="h-5 w-5" />} label="E-Rapot" value={rapotCount} tint="bg-blue-100 text-blue-700" />
                     </div>
 
@@ -120,30 +119,40 @@ export default function OrtuDashboard() {
                             )}
                         </Card>
 
-                        {/* Tagihan ringkas → tautan ke halaman Tagihan */}
-                        <Card className="flex flex-col border-2 p-5">
-                            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Wallet className="h-4 w-4" /> Tagihan</h3>
-                            {belumLunas > 0 ? (
-                                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                                    <div className="text-sm text-amber-800">Ada tagihan menunggu</div>
-                                    <div className="mt-1 text-3xl font-bold text-amber-600">{belumLunas}</div>
-                                    <div className="text-xs text-amber-700">tagihan belum lunas</div>
+                        {/* Tagihan / info pembayaran */}
+                        {selfManaged ? (
+                            <Card className="flex flex-col border-2 p-5">
+                                <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Building2 className="h-4 w-4" /> Pembayaran</h3>
+                                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                                    Pendaftaran &amp; pembayaran ananda dikelola langsung oleh pihak sekolah, jadi tidak ada tagihan di portal ini.
                                 </div>
-                            ) : (
-                                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-                                    <CheckCircle2 className="h-5 w-5" /> Semua tagihan lunas
-                                </div>
-                            )}
-                            <Link href="/ortu/tagihan" className="mt-auto pt-3">
-                                <Button className="w-full" variant={belumLunas > 0 ? "default" : "outline"}>Buka Halaman Tagihan <ChevronRight className="ml-1 h-4 w-4" /></Button>
-                            </Link>
-                        </Card>
+                                <p className="mt-auto pt-3 text-xs text-muted-foreground">Hubungi pihak sekolah untuk urusan biaya.</p>
+                            </Card>
+                        ) : (
+                            <Card className="flex flex-col border-2 p-5">
+                                <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Wallet className="h-4 w-4" /> Tagihan</h3>
+                                {belumLunas > 0 ? (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                        <div className="text-sm text-amber-800">Ada tagihan menunggu</div>
+                                        <div className="mt-1 text-3xl font-bold text-amber-600">{belumLunas}</div>
+                                        <div className="text-xs text-amber-700">tagihan belum lunas</div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                                        <CheckCircle2 className="h-5 w-5" /> Semua tagihan lunas
+                                    </div>
+                                )}
+                                <Link href="/ortu/tagihan" className="mt-auto pt-3">
+                                    <Button className="w-full" variant={belumLunas > 0 ? "default" : "outline"}>Buka Halaman Tagihan <ChevronRight className="ml-1 h-4 w-4" /></Button>
+                                </Link>
+                            </Card>
+                        )}
                     </div>
 
                     {/* Shortcut */}
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <div className={`grid gap-4 ${selfManaged ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
                         <ShortcutCard href="/ortu/progres" icon={<ClipboardList className="h-5 w-5" />} title="Progres Belajar" desc="Kehadiran & catatan trainer" />
-                        <ShortcutCard href="/ortu/tagihan" icon={<Wallet className="h-5 w-5" />} title="Tagihan" desc="Bayar & unggah bukti" />
+                        {!selfManaged && <ShortcutCard href="/ortu/tagihan" icon={<Wallet className="h-5 w-5" />} title="Tagihan" desc="Bayar & unggah bukti" />}
                         <ShortcutCard href="/ortu/rapot" icon={<FileText className="h-5 w-5" />} title="E-Rapot" desc="Unduh rapor per semester" />
                     </div>
                 </div>
@@ -167,17 +176,9 @@ function Kpi({ icon, label, value, tint }: { icon: React.ReactNode; label: strin
 }
 
 function ShortcutCard({
-    href,
-    icon,
-    title,
-    desc,
-    tint = "primary",
+    href, icon, title, desc, tint = "primary",
 }: {
-    href: string;
-    icon: React.ReactNode;
-    title: string;
-    desc: string;
-    tint?: "primary" | "emerald" | "amber" | "blue";
+    href: string; icon: React.ReactNode; title: string; desc: string; tint?: "primary" | "emerald" | "amber" | "blue";
 }) {
     const tints: Record<string, { icon: string; ring: string }> = {
         primary: { icon: "bg-primary/10 text-primary", ring: "hover:border-primary/40" },
@@ -189,18 +190,12 @@ function ShortcutCard({
 
     return (
         <Link href={href} className="block">
-            <Card
-                className={`group flex !flex-row items-center gap-4 border-2 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.ring}`}
-            >
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.icon} transition-transform duration-200 group-hover:scale-105`}>
-                    {icon}
-                </span>
-
+            <Card className={`group flex !flex-row items-center gap-4 border-2 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${t.ring}`}>
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${t.icon} transition-transform duration-200 group-hover:scale-105`}>{icon}</span>
                 <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold">{title}</div>
                     <div className="truncate text-xs text-muted-foreground">{desc}</div>
                 </div>
-
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-all duration-200 group-hover:bg-primary group-hover:text-primary-foreground">
                     <ChevronRight className="h-4 w-4" />
                 </span>

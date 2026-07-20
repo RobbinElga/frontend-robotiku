@@ -10,7 +10,7 @@ import { AnimatedBackground } from "@/components/ui/AnimatedBackground";
 import { ShirtSizeGuide } from "@/components/ui/shirt-size-guide";
 import { useInstansiBatch } from "@/lib/instansi-batch-store";
 
-type MouSchool = { id: number; name: string; registration_fee: string; price_per_cycle: string };
+type MouSchool = { id: number; name: string; registration_fee: string; price_per_cycle: string; self_managed?: boolean };
 type Program = { id: number; name: string; price_per_cycle: string };
 type DaftarResult = { student: { id: number; student_code: string; name: string }; invoice: { id: number; invoice_number: string; total_amount: string } };
 const rupiah = (n: number | string) => "Rp" + Math.round(Number(n)).toLocaleString("id-ID");
@@ -104,6 +104,20 @@ export default function DaftarInstansiPage() {
 
                     {!schoolId ? (
                         <p className="mt-6 rounded-xl border-2 border-dashed border-black/40 bg-[#F5F5F7] p-4 text-center text-sm font-semibold text-[#5f5e5a]">Pilih sekolah dulu.</p>
+                    ) : school?.self_managed ? (
+                        /* ---------- Sekolah kelola pendaftaran & pembayaran sendiri ---------- */
+                        <div className="mt-6 rounded-2xl border-[3px] border-black bg-[#ffd23f] p-5 shadow-[4px_4px_0_0_#000]">
+                            <p className="font-display text-lg font-extrabold">Pendaftaran via Sekolah Langsung</p>
+                            <p className="mt-1.5 text-sm font-semibold">
+                                <b>{school.name}</b> mengelola pendaftaran dan pembayaran sendiri. Silakan mendaftar langsung melalui pihak sekolah — tidak perlu mengisi formulir di sini.
+                            </p>
+                            <p className="mt-2 text-sm font-medium">
+                                Setelah terdaftar oleh sekolah, Anda tetap bisa memantau progres, kehadiran, dan E-Rapot ananda lewat Portal Orang Tua.
+                            </p>
+                            <Link href="/murid" className="mt-4 inline-flex items-center gap-2 rounded-md border-2 border-black bg-[#9b2d9b] px-4 py-2 font-display text-sm font-extrabold text-white shadow-[3px_3px_0_0_#000] transition active:translate-y-[2px] active:shadow-none">
+                                <Users className="h-4 w-4" strokeWidth={2.5} /> Buka Portal Orang Tua
+                            </Link>
+                        </div>
                     ) : (
                         <>
                             {/* Data Ortu */}
@@ -128,7 +142,6 @@ export default function DaftarInstansiPage() {
                                             <Field label="Tanggal lahir *" error={errors.birth_date}><input type="date" className={inputCls} value={form.birth_date} onChange={(e) => setF("birth_date", e.target.value)} /></Field>
                                             <Field label="Jenis kelamin *" error={errors.gender}><select className={inputCls} value={form.gender} onChange={(e) => setF("gender", e.target.value)}><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></Field>
 
-                                            {/* Ukuran kaos + panduan */}
                                             <div>
                                                 <div className="mb-1 flex items-center justify-between gap-2">
                                                     <span className="font-display text-sm font-bold">Ukuran kaos</span>
@@ -146,7 +159,6 @@ export default function DaftarInstansiPage() {
                                             <label className="sm:col-span-2 flex items-center gap-3 rounded-md border-2 border-black bg-white p-3 font-medium"><input type="checkbox" checked={form.photo_permission} onChange={(e) => setF("photo_permission", e.target.checked)} className="h-5 w-5 accent-[#9b2d9b]" /> Izin foto/video anak untuk dokumentasi.</label>
                                         </div>
 
-                                        {/* Rincian Biaya (harga dari sekolah, tanpa promo) */}
                                         {selectedProgram && (
                                             <div className="mt-4 rounded-xl border-2 border-black bg-[#fff8e1] p-4">
                                                 <p className="font-display text-sm font-extrabold">Rincian Biaya</p>
@@ -184,7 +196,6 @@ export default function DaftarInstansiPage() {
                 </div>
             </div>
 
-            {/* Modal konfirmasi selesai */}
             {confirmOpen && (
                 <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
                     <div className="w-full max-w-sm rounded-2xl border-[3px] border-black bg-white p-6 text-center shadow-[6px_6px_0_0_#000]">

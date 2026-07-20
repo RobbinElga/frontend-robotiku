@@ -34,7 +34,7 @@ type School = {
     notes?: Note[]; status_logs?: Log[];
     latitude: number | null; longitude: number | null; geofence_radius: number;
 };
-type Mou = { id: number; file: string; periods: number; note: string | null; creator?: { name: string } };
+type Mou = { id: number; file: string; periods: number; note: string | null; self_managed?: boolean; creator?: { name: string } };
 
 // item yang dibuka di lightbox: protected → path (ambil blob ber-token), public → URL langsung
 type ViewerItem = { protected: boolean; value: string };
@@ -373,14 +373,17 @@ function MouCard({ schoolId, mous, onDone }: { schoolId: number; mous: Mou[]; on
     const [file, setFile] = useState<File | null>(null);
     const [periods, setPeriods] = useState("5");
     const [note, setNote] = useState("");
+    const [selfManaged, setSelfManaged] = useState(false);
 
     const add = useMutation({
         mutationFn: async () => {
             const fd = new FormData();
-            fd.append("file", file!); fd.append("periods", periods); if (note) fd.append("note", note);
+            fd.append("file", file!); fd.append("periods", periods);
+            fd.append("self_managed", selfManaged ? "1" : "0");
+            if (note) fd.append("note", note);
             return api.post(`/canvas/schools/${schoolId}/mou`, fd);
         },
-        onSuccess: () => { setFile(null); setPeriods("5"); setNote(""); setOpen(false); onDone(); },
+        onSuccess: () => { setFile(null); setPeriods("5"); setNote(""); setSelfManaged(false); setOpen(false); onDone(); },
     });
     const del = useMutation({ mutationFn: async (id: number) => api.delete(`/canvas/mou/${id}`), onSuccess: onDone });
 
@@ -407,6 +410,13 @@ function MouCard({ schoolId, mous, onDone }: { schoolId: number; mous: Mou[]; on
                         <div className="flex-1"><Label className="text-xs">Jumlah periode</Label><Input type="number" min={1} value={periods} onChange={(e) => setPeriods(e.target.value)} className="h-9" /></div>
                         <div className="flex-[2]"><Label className="text-xs">Catatan</Label><Input value={note} onChange={(e) => setNote(e.target.value)} className="h-9" /></div>
                     </div>
+                    <label className="flex items-start gap-2 rounded-md border bg-background p-2.5 text-xs">
+                        <input type="checkbox" checked={selfManaged} onChange={(e) => setSelfManaged(e.target.checked)} className="mt-0.5 h-4 w-4 accent-primary" />
+                        <span>
+                            <span className="font-semibold">Sekolah kelola pendaftaran &amp; pembayaran sendiri</span>
+                            <span className="block text-muted-foreground">Tagihan tiap periode langsung jadi kewajiban sekolah (ortu tidak membayar via sistem, tapi tetap bisa buka dashboard).</span>
+                        </span>
+                    </label>
                     <div className="flex justify-end">
                         <Button size="sm" disabled={!file || add.isPending} onClick={() => add.mutate()}>
                             {add.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan MoU"}
@@ -421,7 +431,10 @@ function MouCard({ schoolId, mous, onDone }: { schoolId: number; mous: Mou[]; on
                         <li key={m.id} className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm">
                             <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                             <div className="min-w-0 flex-1">
-                                <div className="truncate font-medium">{m.periods} periode {m.note ? `· ${m.note}` : ""}</div>
+                                <div className="truncate font-medium">
+                                    {m.periods} periode {m.note ? `· ${m.note}` : ""}
+                                    {m.self_managed && <span className="ml-2 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">KELOLA SENDIRI</span>}
+                                </div>
                                 <div className="text-xs text-muted-foreground">{m.creator?.name ?? "—"}</div>
                             </div>
                             <Button size="sm" variant="ghost" onClick={() => download(m)}>Unduh</Button>
