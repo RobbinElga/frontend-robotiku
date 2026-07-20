@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Camera, Loader2, PlayCircle, CheckCircle2, ChevronRight, Building2, X, RefreshCw, Clock, GraduationCap, Users, CalendarDays } from "lucide-react";
+import { MapPin, Camera, Loader2, PlayCircle, CheckCircle2, ChevronRight, Building2, X, RefreshCw, Clock, GraduationCap, Users } from "lucide-react";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
 import { InternalShell } from "@/components/internal/InternalShell";
 import { PageHeader } from "@/components/ui/page-header";
@@ -97,14 +97,6 @@ function StartDialog({ kelas, onClose }: { kelas: Kelas | null; onClose: () => v
     const [locating, setLocating] = useState(false);
     const [photo, setPhoto] = useState<File | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [periodId, setPeriodId] = useState("");
-    const [week, setWeek] = useState("1");
-    const { data: periods } = useQuery({
-        queryKey: ["kelas-periode", kelas?.id],
-        enabled: !!kelas,
-        queryFn: async () => (await api.get<ApiEnvelope<{ id: number; name: string; number: number }[]>>(`/sesi/kelas/${kelas!.id}/periode`)).data.data,
-    });
-    useEffect(() => { if (kelas) { setPeriodId(""); setWeek("1"); } }, [kelas]);
     const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
     useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -119,7 +111,10 @@ function StartDialog({ kelas, onClose }: { kelas: Kelas | null; onClose: () => v
     const start = useMutation({
         mutationFn: async () => {
             const fd = new FormData();
-            fd.append("class_id", String(kelas!.id)); fd.append("period_id", periodId); fd.append("week", week); fd.append("latitude", String(coords!.lat)); fd.append("longitude", String(coords!.lng)); fd.append("photo", photo!);
+            fd.append("class_id", String(kelas!.id));
+            fd.append("latitude", String(coords!.lat));
+            fd.append("longitude", String(coords!.lng));
+            fd.append("photo", photo!);
             return (await api.post<ApiEnvelope<{ id: number }>>("/sesi/mulai", fd)).data;
         },
         onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["sesi-kelas"] }); onClose(); const sid = res?.data?.id; if (sid) router.push(`/app/sesi/${sid}`); },
@@ -131,23 +126,6 @@ function StartDialog({ kelas, onClose }: { kelas: Kelas | null; onClose: () => v
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md">
                 <DialogHeader><DialogTitle>Mulai Sesi — {kelas?.name}</DialogTitle></DialogHeader>
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <span className="mb-1 block text-sm font-medium">Periode</span>
-                            <select value={periodId} onChange={(e) => setPeriodId(e.target.value)}
-                                className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                <option value="">— pilih —</option>
-                                {periods?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <span className="mb-1 block text-sm font-medium">Pekan ke-</span>
-                            <select value={week} onChange={(e) => setWeek(e.target.value)}
-                                className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                {[1, 2, 3, 4].map((n) => <option key={n} value={n}>Pekan {n}</option>)}
-                            </select>
-                        </div>
-                    </div>
                     <div>
                         <div className="mb-1.5 flex items-center justify-between"><span className="flex items-center gap-1.5 text-sm font-medium"><MapPin className="h-4 w-4" /> Lokasi</span>{coords && <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700"><CheckCircle2 className="mr-1 h-3 w-3" /> Terkunci</Badge>}</div>
                         {locating ? <div className="flex h-[150px] items-center justify-center rounded-lg border bg-muted/30 text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengambil lokasi…</div>
@@ -160,7 +138,7 @@ function StartDialog({ kelas, onClose }: { kelas: Kelas | null; onClose: () => v
                             : <label className="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg border-2 border-dashed py-8 text-sm text-muted-foreground hover:border-primary/50 hover:bg-muted/40"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><Camera className="h-5 w-5" /></span><span>Ambil foto selfie</span><input type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></label>}
                     </div>
                     {msg && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{msg}</p>}
-                    <Button className="w-full" disabled={!periodId || !coords || !photo || start.isPending} onClick={() => { setMsg(null); start.mutate(); }}>
+                    <Button className="w-full" disabled={!coords || !photo || start.isPending} onClick={() => { setMsg(null); start.mutate(); }}>
                         {start.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />} Mulai & Kirim Notifikasi
                     </Button>
                 </div>

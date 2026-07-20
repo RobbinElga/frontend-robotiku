@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Search, Eye, ChevronLeft, ChevronRight, Loader2, Info, Plus, Download, FileText } from "lucide-react";
@@ -20,15 +22,19 @@ import { PageHeader } from "@/components/ui/page-header";
 import { DrawerHeader } from "@/components/ui/drawer-header";
 import { cn } from "@/lib/utils";
 
-type Parent = { id: number; name: string; phone: string } | null;
+type Parent = { id: number; name: string; phone: string; greeting?: string | null } | null;
 type School = { id: number; name: string } | null;
 type Kelas = { id: number; name: string };
 type Log = { id: number; old_status: string | null; new_status: string; note: string | null; changed_by_type: string; changed_by: number | null; created_at: string };
 type Student = {
     id: number; student_code: string; name: string; gender: "L" | "P"; status: string;
     registration_type: "mandiri" | "instansi"; school_grade: string | null; school_origin: string | null;
-    birth_date: string | null; parent: Parent; school: School; classes?: Kelas[]; statusLogs?: Log[];
+    birth_date: string | null; shirt_size: string | null; allergy_notes: string | null;
+    photo_permission: boolean; is_verified: boolean; created_at: string;
+    parent: Parent; school: School; program?: { id: number; name: string } | null;
+    classes?: Kelas[]; statusLogs?: Log[];
 };
+
 type Paginator = { data: Student[]; current_page: number; last_page: number; total: number };
 
 const statusCls: Record<string, string> = {
@@ -36,6 +42,10 @@ const statusCls: Record<string, string> = {
     cuti: "bg-amber-50 text-amber-700 border-amber-200",
     berhenti: "bg-rose-50 text-rose-700 border-rose-200",
 };
+
+const genderLabel = (g?: string) => (g === "L" ? "Laki-laki" : g === "P" ? "Perempuan" : "—");
+const tglLong = (s?: string | null) => (s ? new Date(s).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }) : "—");
+const usia = (s?: string | null) => { if (!s) return null; const b = new Date(s), n = new Date(); let a = n.getFullYear() - b.getFullYear(); const m = n.getMonth() - b.getMonth(); if (m < 0 || (m === 0 && n.getDate() < b.getDate())) a--; return a; };
 const filters = ["semua", "aktif", "cuti", "berhenti"];
 
 function SiswaInner() {
@@ -46,6 +56,13 @@ function SiswaInner() {
     const [page, setPage] = useState(1);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const reset = () => setPage(1);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const sid = searchParams.get("student");
+        if (sid) setSelectedId(Number(sid));
+    }, [searchParams])
 
     const list = useQuery({
         queryKey: ["siswa", { search, status, tipe, page }],
@@ -158,7 +175,7 @@ function SiswaInner() {
                 )}
             </Card>
 
-            <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
+            <Sheet open={!!selectedId} onOpenChange={(o) => { if (!o) { setSelectedId(null); if (searchParams.get("student")) router.replace("/app/siswa"); } }}>
                 <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-xl">
                     {detail.isLoading && <div className="grid h-full place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
                     {detail.data && <Detail student={detail.data} onChanged={() => { detail.refetch(); qc.invalidateQueries({ queryKey: ["siswa"] }); }} />}
@@ -179,19 +196,30 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
         onError: (e: any) => setErr(e?.response?.status === 422 ? (e.response.data.message ?? "Status tidak berubah.") : apiError(e)),
     });
 
-    const info = [
+    const info: { l: string; v: React.ReactNode }[] = [
+        { l: "Jenis kelamin", v: genderLabel(student.gender) },
+        { l: "Tanggal lahir", v: student.birth_date ? `${tglLong(student.birth_date)}${usia(student.birth_date) != null ? ` · ${usia(student.birth_date)} th` : ""}` : "—" },
+        { l: "Ukuran baju", v: student.shirt_size || "—" },
+        { l: "Program", v: student.program?.name ?? "—" },
         { l: "Tipe pendaftaran", v: student.registration_type },
-        { l: "Sekolah / asal", v: student.school?.name ?? student.school_origin ?? "—" },
+        { l: "Asal sekolah", v: student.school?.name ?? student.school_origin ?? "—" },
         { l: "Kelas asal", v: student.school_grade ?? "—" },
-        { l: "Tgl lahir", v: student.birth_date?.slice(0, 10) ?? "—" },
-        { l: "Orang tua", v: student.parent ? `${student.parent.name} (${student.parent.phone})` : "—" },
+        { l: "Izin foto/video", v: student.photo_permission ? "Diizinkan" : "Tidak diizinkan" },
         { l: "Kelas Robotiku", v: student.classes?.map((c) => c.name).join(", ") || "—" },
+        { l: "Terdaftar sejak", v: tglLong(student.created_at) },
+        { l: "Orang tua", v: student.parent ? `${student.parent.greeting ? student.parent.greeting + " " : ""}${student.parent.name}` : "—" },
+        { l: "No. WhatsApp", v: student.parent?.phone ?? "—" },
     ];
 
     return (
         <div>
             <DrawerHeader title={student.name} subtitle={student.student_code}
-                badge={<Badge variant="outline" className={cn("capitalize", statusCls[student.status])}>{student.status}</Badge>} />
+                badge={
+                    <div className="flex items-center gap-1.5">
+                        {!student.is_verified && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Belum verifikasi</Badge>}
+                        <Badge variant="outline" className={cn("capitalize", statusCls[student.status])}>{student.status}</Badge>
+                    </div>
+                } />
 
             <div className="space-y-7">
                 <div className="grid grid-cols-2 gap-3">
@@ -202,6 +230,12 @@ function Detail({ student, onChanged }: { student: Student; onChanged: () => voi
                         </div>
                     ))}
                 </div>
+
+                {student.allergy_notes && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <span className="font-medium">Catatan alergi: </span>{student.allergy_notes}
+                    </div>
+                )}
 
                 <div className="rounded-xl border p-4">
                     <p className="mb-3 text-sm font-semibold">Manajemen Status</p>

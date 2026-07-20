@@ -43,6 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Keuangan",
         items: [
             { href: "/app/verifikasi", label: "Verifikasi Bayar", icon: BadgeCheck, roles: ["super_admin", "admin", "admin_keuangan"] },
+            { href: "/app/tagihan", label: "Tagihan", icon: MessageCircle, roles: ["super_admin", "admin", "admin_keuangan"] },
             { href: "/app/keuangan", label: "Setoran Sekolah", icon: BadgeCheck, roles: ["super_admin", "admin", "admin_keuangan"] },
             { href: "/app/pembayaran-instansi", label: "Pembayaran Instansi", icon: BadgeCheck, roles: ["super_admin", "admin"] },
             { href: "/app/rekening", label: "Rekening Robotiku", icon: Landmark, roles: ["super_admin", "admin", "admin_keuangan"] },
@@ -68,7 +69,6 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         label: "Pengaturan",
         items: [
-            { href: "/app/periode", label: "Periode", icon: CalendarRange, roles: ["super_admin", "admin"] },
             { href: "/app/akun", label: "Manajemen Akun", icon: UserCog, roles: ["super_admin"] },
             { href: "/app/lokasi-kantor", label: "Lokasi Kantor", icon: MapPin, roles: ["super_admin"] },
             { href: "/app/pengaturan-wa", label: "Pengaturan WhatsApp", icon: MessageCircle, roles: ["super_admin"] },
