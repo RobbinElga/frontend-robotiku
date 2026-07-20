@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, BadgeCheck, History, Landmark, CreditCard, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, BadgeCheck, History, Landmark, CreditCard, Receipt, UserCog, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-store";
 import { useConfirm } from "@/components/ui/confirm";
@@ -13,13 +13,21 @@ import { cn } from "@/lib/utils";
 const NAV: NavItem[] = [
     { href: "/sekolah/dashboard", label: "Beranda", icon: LayoutDashboard },
     { href: "/sekolah/murid", label: "Murid", icon: Users },
+    { href: "/sekolah/tagihan", label: "Tagihan", icon: Receipt },
     { href: "/sekolah/pembayaran-masuk", label: "Verifikasi Bayar", icon: BadgeCheck },
     { href: "/sekolah/riwayat", label: "Riwayat", icon: History },
     { href: "/sekolah/setoran", label: "Setoran Robotiku", icon: Landmark },
     { href: "/sekolah/rekening", label: "Rekening", icon: CreditCard },
+    { href: "/sekolah/akun", label: "Akun Saya", icon: UserCog },
 ];
-// BottomNav maksimal 5 ikon → Rekening dilepas dari mobile (tetap ada di sidebar)
-const MOBILE_NAV: NavItem[] = NAV.filter((n) => n.href !== "/sekolah/rekening");
+// BottomNav maksimal 5 ikon → pilih yang paling sering dipakai. Riwayat/Rekening/Akun via sidebar & ikon header.
+const MOBILE_NAV: NavItem[] = [
+    NAV[0], // Beranda
+    NAV[1], // Murid
+    NAV[2], // Tagihan
+    NAV[3], // Verifikasi Bayar
+    NAV[5], // Setoran Robotiku
+];
 
 export function SchoolShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -73,6 +81,11 @@ export function SchoolShell({ children }: { children: React.ReactNode }) {
                             <div className="text-sm font-medium leading-tight">{actor?.name ?? "Admin Sekolah"}</div>
                             <div className="text-xs text-muted-foreground">Admin Sekolah</div>
                         </div>
+                        <Link href="/sekolah/akun" title="Akun Saya"
+                            className={cn("flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary",
+                                isActive("/sekolah/akun") && "bg-primary/10 text-primary")}>
+                            <UserCog className="h-4 w-4" />
+                        </Link>
                         <button onClick={logout} title="Keluar"
                             className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-red-600">
                             <LogOut className="h-4 w-4" />

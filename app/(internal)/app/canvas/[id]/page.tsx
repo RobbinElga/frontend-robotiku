@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ArrowLeft, FileText, Trash2, Plus, MessageSquarePlus, Percent, Banknote, Loader2, Image as ImageIcon, Upload,
-    MapPin, Building2, CalendarClock, ExternalLink, X,
+    MapPin, Building2, CalendarClock, ExternalLink, X, AlertCircle, ZoomIn,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { api, apiError, type ApiEnvelope } from "@/lib/api";
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuthImage } from "@/components/ui/auth-image";
 import { publicMediaUrl as fileUrl } from "@/lib/media";
 
 const MapPicker = dynamic(() => import("@/components/ui/map-picker"), { ssr: false });
@@ -35,6 +36,9 @@ type School = {
 };
 type Mou = { id: number; file: string; periods: number; note: string | null; creator?: { name: string } };
 
+// item yang dibuka di lightbox: protected → path (ambil blob ber-token), public → URL langsung
+type ViewerItem = { protected: boolean; value: string };
+
 const STATUS: Record<string, string> = { prospek: "Prospek", dalam_proses: "Dalam Proses", sudah_mou: "MoU", tidak_lanjut: "Tidak Lanjut" };
 const STATUS_META: Record<string, { label: string; idle: string; active: string; badge: string }> = {
     prospek: { label: "Prospek", idle: "border-slate-200 text-slate-600", active: "border-slate-600 bg-slate-600 text-white", badge: "border-slate-200 bg-slate-50 text-slate-600" },
@@ -42,6 +46,7 @@ const STATUS_META: Record<string, { label: string; idle: string; active: string;
     sudah_mou: { label: "MoU", idle: "border-emerald-200 text-emerald-700", active: "border-emerald-600 bg-emerald-600 text-white", badge: "border-emerald-200 bg-emerald-50 text-emerald-700" },
     tidak_lanjut: { label: "Tidak Lanjut", idle: "border-red-200 text-red-600", active: "border-red-600 bg-red-600 text-white", badge: "border-red-200 bg-red-50 text-red-600" },
 };
+const ALLOWED_IMG = ["image/jpeg", "image/png"];
 const rp = (n: number | string) => "Rp " + Number(n).toLocaleString("id-ID");
 const tgl = (s: string) => new Date(s).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 const tglJam = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -52,10 +57,45 @@ function MiniMap({ lat, lng, className }: { lat: number; lng: number; className?
     return <iframe title="peta" loading="lazy" className={className} src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`} />;
 }
 
+/* ------------------------------- LIGHTBOX ------------------------------- */
+function Lightbox({ item, onClose }: { item: ViewerItem | null; onClose: () => void }) {
+    const blob = useQuery({
+        queryKey: ["lightbox", item?.value],
+        enabled: !!item?.protected,
+        queryFn: async () => {
+            const res = await api.get(`/media/${item!.value}`, { responseType: "blob" });
+            return URL.createObjectURL(res.data as Blob);
+        },
+    });
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+        if (item) window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [item, onClose]);
+
+    if (!item) return null;
+    const src = item.protected ? blob.data : item.value;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm" onClick={onClose}>
+            <button onClick={onClose} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20">
+                <X className="h-5 w-5" />
+            </button>
+            {item.protected && !src ? (
+                <Loader2 className="h-8 w-8 animate-spin text-white" />
+            ) : (
+                <img src={src} alt="Foto penuh" className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            )}
+        </div>
+    );
+}
+
 export default function CanvasDetailPage() {
     const { id } = useParams<{ id: string }>();
     const qc = useQueryClient();
     const key = ["canvas", id];
+    const [viewer, setViewer] = useState<ViewerItem | null>(null);
 
     const { data: s, isLoading } = useQuery({
         queryKey: key,
@@ -87,9 +127,11 @@ export default function CanvasDetailPage() {
                         <Card className="overflow-hidden">
                             <div className="flex flex-col gap-4 border-b bg-gradient-to-r from-primary/5 to-transparent p-5 sm:flex-row sm:items-center sm:p-6">
                                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted text-muted-foreground">
-                                        {fileUrl(s.photo) ? <img src={fileUrl(s.photo)!} alt={s.name} className="h-full w-full object-cover" /> : <Building2 className="h-7 w-7" />}
-                                    </div>
+                                    <button type="button" onClick={() => s.photo && setViewer({ protected: false, value: fileUrl(s.photo)! })}
+                                        className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted text-muted-foreground disabled:cursor-default"
+                                        disabled={!s.photo} title={s.photo ? "Lihat foto sekolah" : undefined}>
+                                        {fileUrl(s.photo) ? <img src={fileUrl(s.photo)!} alt={s.name} className="h-full w-full cursor-zoom-in object-cover" /> : <Building2 className="h-7 w-7" />}
+                                    </button>
                                     <div className="min-w-0">
                                         <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{s.name}</h1>
                                         <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" /> {s.address || "Alamat belum diisi"}</p>
@@ -120,20 +162,22 @@ export default function CanvasDetailPage() {
                                 </Card>
                                 <CommissionCard school={s} onDone={invalidate} />
                                 <HargaCard school={s} onDone={invalidate} />
-                                <MediaCard school={s} onDone={invalidate} />
+                                <MediaCard school={s} onDone={invalidate} onView={setViewer} />
                             </div>
 
                             {/* Kolom kanan — lokasi, MoU, catatan, log */}
                             <div className="space-y-6 lg:col-span-2">
                                 <LocationCard school={s} onDone={invalidate} />
                                 <MouCard schoolId={s.id} mous={mous ?? []} onDone={invalidate} />
-                                <NotesCard school={s} onDone={invalidate} />
+                                <NotesCard school={s} onDone={invalidate} onView={setViewer} />
                                 <LogCard logs={s.status_logs ?? []} />
                             </div>
                         </div>
                     </div>
                 )}
             </div>
+
+            <Lightbox item={viewer} onClose={() => setViewer(null)} />
         </InternalShell>
     );
 }
@@ -247,39 +291,79 @@ function HargaCard({ school, onDone }: { school: School; onDone: () => void }) {
     );
 }
 
-function MediaCard({ school, onDone }: { school: School; onDone: () => void }) {
+function MediaCard({ school, onDone, onView }: { school: School; onDone: () => void; onView: (v: ViewerItem) => void }) {
     const [busy, setBusy] = useState<"photo" | "qris_image" | null>(null);
+    const [err, setErr] = useState<string | null>(null);
+
     const upload = async (file: File, field: "photo" | "qris_image") => {
+        setErr(null);
+        if (!ALLOWED_IMG.includes(file.type)) { setErr("Format tidak didukung — gunakan JPG atau PNG."); return; }
+        if (file.size > 5 * 1024 * 1024) { setErr("Ukuran file melebihi 5MB."); return; }
+
         setBusy(field);
         try {
             const fd = new FormData(); fd.append("image", file);
             const { data } = await api.post<ApiEnvelope<{ path: string }>>("/canvas/upload", fd);
             await api.put(`/canvas/schools/${school.id}`, { name: school.name, [field]: data.data.path });
             onDone();
-        } finally { setBusy(null); }
+        } catch (e) {
+            setErr(apiError(e, "Gagal mengunggah gambar."));
+        } finally {
+            setBusy(null);
+        }
     };
+
     return (
         <Card className="p-5">
             <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><ImageIcon className="h-4 w-4" /> Foto & QRIS</h3>
             <div className="grid grid-cols-2 gap-3">
-                <MediaSlot label="Foto Sekolah" src={fileUrl(school.photo)} loading={busy === "photo"} onPick={(f) => upload(f, "photo")} />
-                <MediaSlot label="QRIS / Rekening" src={fileUrl(school.qris_image)} loading={busy === "qris_image"} onPick={(f) => upload(f, "qris_image")} />
+                <MediaSlot label="Foto Sekolah" src={fileUrl(school.photo)} loading={busy === "photo"}
+                    onPick={(f) => upload(f, "photo")} onView={() => school.photo && onView({ protected: false, value: fileUrl(school.photo)! })} />
+                <MediaSlot label="QRIS / Rekening" src={fileUrl(school.qris_image)} loading={busy === "qris_image"}
+                    onPick={(f) => upload(f, "qris_image")} onView={() => school.qris_image && onView({ protected: false, value: fileUrl(school.qris_image)! })} />
             </div>
+            {err && (
+                <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{err}</span>
+                </div>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">Format JPG atau PNG, maks 5MB. Klik gambar untuk lihat penuh.</p>
         </Card>
     );
 }
 
-function MediaSlot({ label, src, loading, onPick }: { label: string; src: string | null; loading: boolean; onPick: (f: File) => void }) {
+function MediaSlot({ label, src, loading, onPick, onView }: { label: string; src: string | null; loading: boolean; onPick: (f: File) => void; onView: () => void }) {
+    const inputRef = useRef<HTMLInputElement>(null);
     return (
-        <label className="block cursor-pointer">
+        <div>
             <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
-            <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/25 transition hover:border-primary/50 hover:bg-muted/40">
-                {loading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    : src ? <img src={src} alt={label} className="h-full w-full object-cover" />
-                        : <div className="flex flex-col items-center gap-1 text-muted-foreground"><Upload className="h-5 w-5" /><span className="text-[11px]">Unggah</span></div>}
+            <div className="group relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-muted-foreground/25 bg-muted/20">
+                {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                ) : src ? (
+                    <>
+                        <button type="button" onClick={onView} className="relative h-full w-full cursor-zoom-in">
+                            <img src={src} alt={label} className="h-full w-full object-cover" />
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
+                                <ZoomIn className="h-6 w-6 text-white" />
+                            </span>
+                        </button>
+                        <button type="button" onClick={() => inputRef.current?.click()}
+                            className="absolute bottom-1.5 right-1.5 rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium text-white hover:bg-black/75">
+                            Ganti
+                        </button>
+                    </>
+                ) : (
+                    <button type="button" onClick={() => inputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary">
+                        <Upload className="h-5 w-5" /><span className="text-[11px]">Unggah</span>
+                    </button>
+                )}
+                <input ref={inputRef} type="file" accept="image/jpeg,image/png" className="hidden"
+                    onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+                    onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0])} />
             </div>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onPick(e.target.files[0])} />
-        </label>
+        </div>
     );
 }
 
@@ -350,7 +434,7 @@ function MouCard({ schoolId, mous, onDone }: { schoolId: number; mous: Mou[]; on
     );
 }
 
-function NotesCard({ school, onDone }: { school: School; onDone: () => void }) {
+function NotesCard({ school, onDone, onView }: { school: School; onDone: () => void; onView: (v: ViewerItem) => void }) {
     const [kind, setKind] = useState<"audit" | "pertemuan">("pertemuan");
     const [note, setNote] = useState("");
     const [photo, setPhoto] = useState<File | null>(null);
@@ -402,12 +486,10 @@ function NotesCard({ school, onDone }: { school: School; onDone: () => void }) {
 
                 {isPertemuan && (
                     <div className="grid gap-3 sm:grid-cols-2">
-                        {/* Foto wajib */}
                         <div>
                             <Label className="mb-1 block text-xs">Foto kunjungan <span className="text-red-600">*</span></Label>
                             <FileDrop accept="image/*" label="Foto kunjungan" value={photo} onPick={setPhoto} />
                         </div>
-                        {/* Lokasi wajib */}
                         <div>
                             <Label className="mb-1 block text-xs">Lokasi kedatangan <span className="text-red-600">*</span></Label>
                             {loc ? (
@@ -451,7 +533,15 @@ function NotesCard({ school, onDone }: { school: School; onDone: () => void }) {
                             <p className="whitespace-pre-wrap text-sm">{n.note}</p>
                             {(n.photo || n.latitude != null) && (
                                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                    {n.photo && <img src={fileUrl(n.photo)!} alt="lampiran" className="h-32 w-full rounded-lg border object-cover" />}
+                                    {n.photo && (
+                                        <button type="button" onClick={() => onView({ protected: true, value: n.photo! })}
+                                            className="group relative block overflow-hidden rounded-lg border">
+                                            <AuthImage path={n.photo} alt="lampiran" className="h-32 w-full cursor-zoom-in object-cover" />
+                                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
+                                                <ZoomIn className="h-6 w-6 text-white" />
+                                            </span>
+                                        </button>
+                                    )}
                                     {n.latitude != null && n.longitude != null && (
                                         <div className="space-y-1">
                                             <MiniMap lat={n.latitude} lng={n.longitude} className="h-32 w-full rounded-lg border" />

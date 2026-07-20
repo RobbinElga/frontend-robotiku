@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Eye, Loader2, Check, X, MessageCircle, FileText, Trash2 } from "lucide-react";
+import { Eye, Loader2, Check, X, MessageCircle, FileText, Trash2, User, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -100,7 +100,7 @@ function VerifikasiInner() {
             </Card>
 
             <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-                <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+                <SheetContent className="w-full overflow-y-auto p-6 sm:max-w-xl">
                     {selected && <Detail payment={selected} onDone={() => { setSelected(null); qc.invalidateQueries({ queryKey: ["payments"] }); }} />}
                 </SheetContent>
             </Sheet>
@@ -143,49 +143,86 @@ function Detail({ payment, onDone }: { payment: Payment; onDone: () => void }) {
     };
 
     const pending = payment.status === "menunggu_verifikasi";
-    const canDelete = payment.status !== "diverifikasi"; // belum jadi siswa
+    const canDelete = payment.status !== "diverifikasi";
+    const uploader = payment.uploader_type === "school_admin" ? "Admin Sekolah" : "Orang Tua";
+    const tanggal = payment.created_at ? new Date(payment.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" }) : "—";
 
     return (
-        <div>
-            <DrawerHeader title={payment.invoice.student.name} subtitle={payment.invoice.invoice_number}
-                badge={<Badge variant="outline" className={cn("capitalize", statusCls[payment.status])}>{payment.status.replace("_", " ")}</Badge>} />
-
-            <div className="mb-4 flex items-center justify-between rounded-xl border bg-primary/5 p-4">
-                <div>
-                    <p className="text-xs text-muted-foreground">Jumlah tagihan</p>
-                    <p className="text-2xl font-semibold">{rupiah(payment.invoice.total_amount)}</p>
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b pb-4">
+                <div className="min-w-0">
+                    <h2 className="truncate text-lg font-semibold">{payment.invoice.student.name}</h2>
+                    <p className="font-mono text-xs text-muted-foreground">{payment.invoice.invoice_number}</p>
                 </div>
-                <Badge variant="secondary" className="capitalize">{payment.uploader_type === "school_admin" ? "Admin Sekolah" : "Orang Tua"}</Badge>
+                <Badge variant="outline" className={cn("shrink-0 capitalize", statusCls[payment.status])}>{payment.status.replace("_", " ")}</Badge>
             </div>
 
-            <p className="mb-2 text-sm font-semibold">Bukti Pembayaran</p>
-            <div className="rounded-lg border p-2">
-                {proof.isLoading && <div className="grid h-48 place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>}
-                {proof.data && (proof.data.isPdf
-                    ? <a href={proof.data.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-4 text-sm text-primary"><FileText className="h-5 w-5" /> Buka bukti (PDF)</a>
-                    : <img src={proof.data.url} alt="Bukti" className="max-h-96 w-full rounded-md object-contain" />)}
+            {/* Ringkasan tagihan */}
+            <div className="rounded-xl border p-5">
+                <div className="flex items-end justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Jumlah tagihan</p>
+                        <p className="mt-1 text-3xl font-bold tracking-tight text-foreground">{rupiah(payment.invoice.total_amount)}</p>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0 gap-1"><User className="h-3 w-3" /> {uploader}</Badge>
+                </div>
+                <div className="mt-4 flex items-center gap-6 border-t pt-3 text-sm">
+                    <div><span className="text-muted-foreground">Tanggal upload</span><div className="font-medium">{tanggal}</div></div>
+                </div>
             </div>
 
-            <Button variant="outline" size="sm" className="mt-4" disabled={wa.isPending} onClick={() => wa.mutate()}>
+            {/* Bukti bayar */}
+            <div>
+                <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold">Bukti Pembayaran</p>
+                    {proof.data && !proof.data.isPdf && (
+                        <a href={proof.data.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                            <ExternalLink className="h-3 w-3" /> Buka penuh
+                        </a>
+                    )}
+                </div>
+                <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-xl border bg-muted/30">
+                    {proof.isLoading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+                    {proof.data && (proof.data.isPdf
+                        ? <a href={proof.data.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-6 text-sm font-medium text-primary">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10"><FileText className="h-5 w-5" /></span> Buka bukti (PDF)
+                        </a>
+                        : <a href={proof.data.url} target="_blank" rel="noreferrer" className="block w-full"><img src={proof.data.url} alt="Bukti pembayaran" className="max-h-[440px] w-full object-contain" /></a>)}
+                </div>
+            </div>
+
+            {/* Tagih WA */}
+            <Button variant="outline" className="w-full" disabled={wa.isPending} onClick={() => wa.mutate()}>
                 {wa.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageCircle className="mr-2 h-4 w-4" />} Tagih via WhatsApp
             </Button>
 
+            {/* Verifikasi */}
             {pending && (
-                <div className="mt-4 space-y-3 rounded-xl border p-4">
-                    <Textarea rows={2} placeholder="Catatan (wajib jika menolak)" value={notes} onChange={(e) => setNotes(e.target.value)} />
-                    {err && <p className="text-sm text-destructive">{err}</p>}
-                    <div className="flex gap-3">
-                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("approve"); }}><Check className="mr-2 h-4 w-4" /> Setujui</Button>
-                        <Button variant="destructive" className="flex-1" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("reject"); }}><X className="mr-2 h-4 w-4" /> Tolak</Button>
+                <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+                    <div>
+                        <label className="mb-1.5 block text-sm font-medium">Catatan <span className="text-xs font-normal text-muted-foreground">(wajib jika menolak)</span></label>
+                        <Textarea rows={3} placeholder="Tulis alasan bila menolak…" value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-background" />
+                    </div>
+                    {err && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
+                    <div className="grid grid-cols-2 gap-3">
+                        <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("approve"); }}>
+                            {verify.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} Setujui
+                        </Button>
+                        <Button variant="destructive" disabled={verify.isPending} onClick={() => { setErr(null); verify.mutate("reject"); }}>
+                            <X className="mr-2 h-4 w-4" /> Tolak
+                        </Button>
                     </div>
                 </div>
             )}
 
+            {/* Zona hapus */}
             {canDelete && (
-                <div className="mt-4 rounded-xl border border-dashed border-rose-200 p-4">
-                    <p className="text-xs text-muted-foreground">Pendaftaran ini belum terverifikasi (belum menjadi siswa). Hapus jika batal / tidak jadi bayar.</p>
+                <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4">
+                    <p className="text-sm font-semibold text-rose-700">Hapus Pendaftaran</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Belum terverifikasi (belum menjadi siswa). Hapus jika batal / tidak jadi bayar.</p>
                     {!pending && err && <p className="mt-2 text-sm text-destructive">{err}</p>}
-                    <Button variant="outline" size="sm" className="mt-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700" disabled={del.isPending} onClick={onDelete}>
+                    <Button variant="outline" size="sm" className="mt-3 border-rose-300 bg-white text-rose-600 hover:bg-rose-100 hover:text-rose-700" disabled={del.isPending} onClick={onDelete}>
                         {del.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Hapus Pendaftaran
                     </Button>
                 </div>

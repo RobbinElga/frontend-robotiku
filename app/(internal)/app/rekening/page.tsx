@@ -34,7 +34,7 @@ export default function RekeningPage() {
             <PageHeader title="Rekening Robotiku" subtitle="Tujuan transfer setoran dari sekolah mitra."
                 action={<Button onClick={() => setCreating(true)}><Plus className="mr-1.5 h-4 w-4" /> Tambah</Button>} />
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {(data ?? []).map((b) => (
                     <Card key={b.id} className="p-5">
                         <div className="mb-2 flex items-center justify-between">
