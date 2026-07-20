@@ -3,7 +3,14 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-export type ParentSession = { studentId: number; name: string; studentCode: string; phone: string } | null;
+export type ParentSession = {
+    studentId: number;
+    name: string;
+    studentCode: string;
+    phone: string;
+    /** true bila sekolah mengelola pendaftaran & pembayaran sendiri → menu Tagihan disembunyikan */
+    selfManaged?: boolean;
+} | null;
 
 type State = {
     parent: ParentSession;

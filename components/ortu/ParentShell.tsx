@@ -26,6 +26,9 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
     const clearParent = useParent((s) => s.clearParent);
     const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+    // Sekolah kelola pendaftaran & pembayaran sendiri → menu Tagihan disembunyikan
+    const nav = parent?.selfManaged ? NAV.filter((n) => n.href !== "/ortu/tagihan") : NAV;
+
     const keluar = async () => {
         const ok = await confirm({ title: "Keluar?", description: "Anda perlu memasukkan nama/HP anak lagi untuk mengakses.", confirmText: "Keluar", variant: "destructive" });
         if (!ok) return;
@@ -46,7 +49,7 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                     <div className="font-mono text-xs text-muted-foreground">{parent?.studentCode ?? "—"}</div>
                 </div>
                 <nav className="flex-1 space-y-1 p-2">
-                    {NAV.map((it) => {
+                    {nav.map((it) => {
                         const Icon = it.icon;
                         const active = isActive(it.href);
                         return (
@@ -81,7 +84,7 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                 <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
             </div>
 
-            {isMobile && <BottomNav items={NAV} />}
+            {isMobile && <BottomNav items={nav} />}
         </div>
     );
 }
