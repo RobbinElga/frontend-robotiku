@@ -49,7 +49,14 @@ export function useInternalGuard(): { ready: boolean; role: Role | null } {
     useEffect(() => {
         if (!ready || !role) return;
         const item = navItemForPath(pathname);
-        if (item && !item.roles.includes(role)) router.replace("/app/dashboard");
+        if (item && !item.roles.includes(role)) {
+            // Logika pengalihan cerdas berdasarkan role agar tidak infinite loop
+            if (role === "marketing") {
+                router.replace("/app/canvas/dashboardmarketing");
+            } else {
+                router.replace("/app/dashboard");
+            }
+        }
     }, [ready, role, pathname, router]);
 
     return { ready, role };
