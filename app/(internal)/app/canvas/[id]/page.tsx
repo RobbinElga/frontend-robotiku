@@ -52,9 +52,7 @@ const tgl = (s: string) => new Date(s).toLocaleDateString("id-ID", { day: "2-dig
 const tglJam = (s: string) => new Date(s).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function MiniMap({ lat, lng, className }: { lat: number; lng: number; className?: string }) {
-    const d = 0.008;
-    const bbox = `${lng - d},${lat - d},${lng + d},${lat + d}`;
-    return <iframe title="peta" loading="lazy" className={className} src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`} />;
+    return <iframe title="peta" loading="lazy" className={className} src={`https://maps.google.com/maps?q=${lat},${lng}&t=k&z=16&output=embed`} />;
 }
 
 /* ------------------------------- LIGHTBOX ------------------------------- */
@@ -124,8 +122,8 @@ export default function CanvasDetailPage() {
                 ) : (
                     <div className="space-y-6">
                         {/* HEADER */}
-                        <Card className="overflow-hidden">
-                            <div className="flex flex-col gap-4 border-b bg-gradient-to-r from-primary/5 to-transparent p-5 sm:flex-row sm:items-center sm:p-6">
+                        <Card className="overflow-hidden shadow-sm border-slate-200/60">
+                            <div className="flex flex-col gap-4 border-b bg-gradient-to-r from-blue-100/60 to-transparent p-5 sm:flex-row sm:items-center sm:p-6">
                                 <div className="flex min-w-0 flex-1 items-center gap-4">
                                     <button type="button" onClick={() => s.photo && setViewer({ protected: false, value: fileUrl(s.photo)! })}
                                         className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted text-muted-foreground disabled:cursor-default"
@@ -152,7 +150,7 @@ export default function CanvasDetailPage() {
                             {/* Kolom kiri — pengaturan */}
                             <div className="space-y-6 lg:col-span-1">
                                 <StatusCard school={s} onDone={invalidate} />
-                                <Card className="p-5">
+                                <Card className="p-5 shadow-sm border-slate-200/60">
                                     <h3 className="mb-3 text-sm font-semibold">Informasi</h3>
                                     <dl className="space-y-2 text-sm">
                                         <Row label="PIC" value={s.pic_name} />
@@ -208,7 +206,7 @@ function LocationCard({ school, onDone }: { school: School; onDone: () => void }
     });
 
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><MapPin className="h-4 w-4" /> Lokasi & Radius (Absensi GPS)</h3>
             <MapPicker lat={lat} lng={lng} radius={Number(radius) || 500} onChange={(la: number, ln: number) => { setLat(la); setLng(ln); }} />
             <div className="mt-3 flex items-end gap-2">
@@ -233,7 +231,7 @@ function StatusCard({ school, onDone }: { school: School; onDone: () => void }) 
         onSuccess: () => { setNote(""); onDone(); },
     });
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 text-sm font-semibold">Status Pipeline</h3>
             <div className="grid grid-cols-2 gap-2">
                 {Object.entries(STATUS_META).map(([k, m]) => (
@@ -259,7 +257,7 @@ function CommissionCard({ school, onDone }: { school: School; onDone: () => void
         onSuccess: onDone,
     });
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Percent className="h-4 w-4" /> Komisi Sekolah</h3>
             <div className="flex items-center gap-2">
                 <Input type="number" min={0} max={100} value={val} onChange={(e) => setVal(e.target.value)} className="w-24" />
@@ -279,7 +277,7 @@ function HargaCard({ school, onDone }: { school: School; onDone: () => void }) {
         onSuccess: onDone,
     });
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Banknote className="h-4 w-4" /> Harga (Instansi)</h3>
             <div className="space-y-2.5">
                 <div><Label className="text-xs">Biaya daftar</Label><Input type="number" min={0} value={reg} onChange={(e) => setReg(e.target.value)} /></div>
@@ -314,7 +312,7 @@ function MediaCard({ school, onDone, onView }: { school: School; onDone: () => v
     };
 
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><ImageIcon className="h-4 w-4" /> Foto & QRIS</h3>
             <div className="grid grid-cols-2 gap-3">
                 <MediaSlot label="Foto Sekolah" src={fileUrl(school.photo)} loading={busy === "photo"}
@@ -397,7 +395,7 @@ function MouCard({ schoolId, mous, onDone }: { schoolId: number; mous: Mou[]; on
     };
 
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <div className="mb-3 flex items-center justify-between">
                 <h3 className="flex items-center gap-1.5 text-sm font-semibold"><FileText className="h-4 w-4" /> Dokumen MoU</h3>
                 <Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}><Plus className="mr-1 h-4 w-4" /> Tambah MoU</Button>
@@ -482,7 +480,7 @@ function NotesCard({ school, onDone, onView }: { school: School; onDone: () => v
     });
 
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><MessageSquarePlus className="h-4 w-4" /> Catatan</h3>
 
             <div className="mb-4 space-y-3 rounded-lg border bg-muted/30 p-3">
@@ -574,7 +572,7 @@ function NotesCard({ school, onDone, onView }: { school: School; onDone: () => v
 function LogCard({ logs }: { logs: Log[] }) {
     if (!logs.length) return null;
     return (
-        <Card className="p-5">
+        <Card className="p-5 shadow-sm border-slate-200/60">
             <h3 className="mb-3 text-sm font-semibold">Riwayat Status</h3>
             <ul className="space-y-2 text-sm">
                 {logs.map((l) => (

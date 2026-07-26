@@ -63,8 +63,8 @@ export default function MapPicker({ lat, lng, radius = 500, onChange }: {
             </div>
 
             <div className="overflow-hidden rounded-xl border shadow-sm">
-                <MapContainer center={center} zoom={15} style={{ height: 320, width: "100%" }} scrollWheelZoom>
-                    <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <MapContainer center={center} zoom={15} style={{ height: 320, width: "100%" }} scrollWheelZoom attributionControl={false}>
+                    <TileLayer url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" />
                     {lat != null && lng != null && (
                         <>
                             <Marker position={[lat, lng]} icon={markerIcon} />
