@@ -39,10 +39,10 @@ export default function DetailRapot({ params }: { params: Promise<{ id: string }
     const [busy, setBusy] = useState(false);
 
     const { data, isLoading } = useQuery({
-        queryKey: ["ortu-rapot", parent.studentId],
+        queryKey: ["ortu-rapot", parent?.studentIdId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent.studentId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentIdId, phone: parent.phone })).data.data,
     });
 
     const r = data?.find((x) => String(x.id) === id);

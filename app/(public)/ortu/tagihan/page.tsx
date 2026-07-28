@@ -32,7 +32,7 @@ export default function OrtuTagihan() {
         queryKey: ["ortu-invoices", parent?.studentId],
         enabled: !!parent?.studentId && !selfManaged,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent.studentId, phone: parent.phone })).data.data.invoices,
+            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentIdId, phone: parent.phone })).data.data.invoices,
     });
 
     // Sekolah kelola pendaftaran & pembayaran sendiri → tidak ada tagihan di portal
