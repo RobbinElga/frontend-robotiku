@@ -5,12 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeft, PanelLeftClose, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_GROUPS, type Role, type Item } from "./nav-config";
+import { NAV_GROUPS, navItemForPath, type Role, type Item } from "./nav-config";
 
 export function Sidebar({ role }: { role: Role }) {
     const pathname = usePathname();
     const [collapsed, setCollapsed] = useState(false);
-    const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+    
+    // Cari rute menu spesifik yang sedang aktif
+    const currentItem = navItemForPath(pathname);
+    // Menu hanya menyala jika href-nya sama persis dengan rute spesifik tersebut
+    const isActive = (href: string) => currentItem?.href === href;
 
     // hanya menu yang boleh untuk role ini
     const groups = NAV_GROUPS

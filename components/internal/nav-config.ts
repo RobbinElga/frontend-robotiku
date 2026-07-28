@@ -21,7 +21,8 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         label: null,
         items: [
-            { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "marketing", "trainer", "admin_keuangan"] },
+            { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "trainer", "admin_keuangan"] },
+            
         ],
     },
     {
@@ -35,8 +36,9 @@ export const NAV_GROUPS: NavGroup[] = [
     {
         label: "Kemitraan (Canvas)",
         items: [
+            { href: "/app/canvas/dashboardmarketing", label: "Dashboard", icon: LayoutDashboard, roles: ["marketing"] },
             { href: "/app/canvas", label: "Canvas", icon: Workflow, roles: ["super_admin", "admin", "marketing"] },
-            { href: "/app/canvas/rekap", label: "Rekap Canvas", icon: BarChart3, roles: ["super_admin", "admin"] },
+            { href: "/app/canvas/analitikcanvas", label: "Analitik Canvas", icon: BarChart3, roles: ["super_admin", "admin"] },
         ],
     },
     {
