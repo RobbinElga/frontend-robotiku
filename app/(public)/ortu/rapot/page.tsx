@@ -20,10 +20,10 @@ export default function OrtuRapot() {
     const parent = useParent((s) => s.parent)!;
 
     const { data, isLoading } = useQuery({
-        queryKey: ["ortu-rapot", parent?.studentIdId],
+        queryKey: ["ortu-rapot", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentIdId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Rapot[]>>("/e-rapot/parent", { student_id: parent?.studentId, phone: parent.phone })).data.data,
     });
 
     return (

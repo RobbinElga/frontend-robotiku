@@ -44,10 +44,10 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
     const [msg, setMsg] = useState("");
 
     const { data, isLoading } = useQuery({
-        queryKey: ["ortu-invoices", parent?.studentIdId],
+        queryKey: ["ortu-invoices", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentIdId, phone: parent.phone })).data.data.invoices,
+            (await api.post<ApiEnvelope<{ invoices: Invoice[] }>>("/bayar/tagihan", { student_id: parent?.studentId, phone: parent.phone })).data.data.invoices,
     });
 
     const inv = data?.find((i) => String(i.id) === id);
@@ -60,7 +60,7 @@ export default function DetailTagihan({ params }: { params: Promise<{ id: string
             fd.append("file", file!);
             return api.post("/bayar/upload", fd);
         },
-        onSuccess: () => { setFile(null); setMsg(""); qc.invalidateQueries({ queryKey: ["ortu-invoices", parent?.studentIdId] }); },
+        onSuccess: () => { setFile(null); setMsg(""); qc.invalidateQueries({ queryKey: ["ortu-invoices", parent?.studentId] }); },
         onError: (e: any) => setMsg(e?.response?.data?.message ?? "Gagal mengunggah bukti."),
     });
 
