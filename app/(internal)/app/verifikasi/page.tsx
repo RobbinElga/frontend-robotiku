@@ -46,6 +46,19 @@ function VerifikasiInner() {
         placeholderData: keepPreviousData,
     });
 
+    const verify = useMutation({
+        mutationFn: async ({ id, action, notes }: { id: number; action: "approve" | "reject"; notes?: string }) =>
+            (await api.post(`/bayar/payments/${id}/verify`, { action, notes })).data,
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["payments"] }),
+        onError: (e: unknown) => {
+            const axiosErr = e as { response?: { status: number; data: { message: string } } };
+            const msg = axiosErr?.response?.status === 422
+                ? (axiosErr.response.data.message ?? "Alasan wajib diisi untuk penolakan.")
+                : apiError(e);
+            alert(msg);
+        },
+    });
+
     const p = list.data;
     const rows = p?.data ?? [];
 
@@ -82,7 +95,29 @@ function VerifikasiInner() {
                                 <TableCell className="text-sm capitalize text-muted-foreground">{pay.uploader_type === "school_admin" ? "Admin Sekolah" : "Orang Tua"}</TableCell>
                                 <TableCell className="text-xs text-muted-foreground">{pay.created_at?.slice(0, 10)}</TableCell>
                                 <TableCell><Badge variant="outline" className={cn("capitalize", statusCls[pay.status])}>{pay.status.replace("_", " ")}</Badge></TableCell>
-                                <TableCell className="text-right"><Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelected(pay); }}><Eye className="h-4 w-4" /></Button></TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        {pay.status === "menunggu_verifikasi" && (
+                                            <>
+                                                <Button size="icon" variant="ghost" className="text-emerald-600 hover:text-emerald-700" disabled={verify.isPending}
+                                                    onClick={(e) => { e.stopPropagation(); verify.mutate({ id: pay.id, action: "approve" }); }}>
+                                                    {verify.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                                </Button>
+                                                <Button size="icon" variant="ghost" className="text-rose-600 hover:text-rose-700" disabled={verify.isPending}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const notes = window.prompt("Alasan penolakan:");
+                                                        if (notes !== null) verify.mutate({ id: pay.id, action: "reject", notes: notes || undefined });
+                                                    }}>
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </>
+                                        )}
+                                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelected(pay); }}>
+                                            <Eye className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
                             </TableRow>
                         ))}
                         {!list.isLoading && rows.length === 0 && <TableRow><TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Tidak ada data.</TableCell></TableRow>}

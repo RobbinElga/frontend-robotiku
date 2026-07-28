@@ -1,16 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-    Users, Wallet, ReceiptText, Clock, Building2, CalendarCheck,
-} from "lucide-react";
+import { Users, Wallet, ReceiptText, Clock, Building2, CalendarCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-store";
 import { InternalShell } from "@/components/internal/InternalShell";
-import { KeuanganDashboard } from "@/components/dashboard/KeuanganDashboard";
 
 const rupiah = (n: number) => "Rp" + Math.round(n).toLocaleString("id-ID");
 
@@ -21,13 +17,7 @@ type Kpi = {
     kehadiran_bulan_ini: number;
 };
 
-function MainDashboard() {
-    const role = useAuth((s) => s.actor?.kind === "user" ? s.actor.role : null);
-
-    if (role === "admin_keuangan") {
-        return <KeuanganDashboard />;
-    }
-
+function DashboardInner() {
     const q = useQuery({ queryKey: ["internal-kpi"], queryFn: async () => (await api.get("/dashboard")).data.data as Kpi });
     const d = q.data;
 
@@ -82,5 +72,5 @@ function MainDashboard() {
 }
 
 export default function Page() {
-    return <InternalShell><MainDashboard /></InternalShell>;
+    return <InternalShell><DashboardInner /></InternalShell>;
 }
