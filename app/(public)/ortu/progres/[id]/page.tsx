@@ -31,10 +31,10 @@ export default function DetailProgres({ params }: { params: Promise<{ id: string
     const parent = useParent((s) => s.parent)!;
 
     const { data, isLoading } = useQuery({
-        queryKey: ["ortu-progres", parent.studentId],
+        queryKey: ["ortu-progres", parent?.studentId],
         enabled: !!parent?.studentId,
         queryFn: async () =>
-            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent.studentId, phone: parent.phone })).data.data,
+            (await api.post<ApiEnvelope<Progress>>("/murid/progress", { student_id: parent?.studentId, phone: parent.phone })).data.data,
     });
 
     const a = data?.attendances.find((x) => String(x.id) === id);
